@@ -1,0 +1,1043 @@
+{
+    "$id": "no://nolang.entity.schema",
+    "title": "Nolang Entity Schema",
+    "definitions": {
+        "schemaArray": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+                "$ref": "#"
+            }
+        },
+        "nonNegativeInteger": {
+            "type": "integer",
+            "minimum": 0
+        },
+        "nonNegativeIntegerDefault0": {
+            "allOf": [
+                {
+                    "$ref": "#/definitions/nonNegativeInteger"
+                },
+                {
+                    "default": 0
+                }
+            ]
+        },
+        "simpleTypes": {
+            "enum": [
+                "array",
+                "boolean",
+                "integer",
+                "null",
+                "number",
+                "object",
+                "string",
+                "date",
+                "jdate",
+                "time",
+                "objectid",
+                "userid",
+                "image",
+                "map",
+                "text",
+                "virtual",
+                "jsondom"
+            ]
+        },
+        "stringArray": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            },
+            "uniqueItems": true,
+            "default": []
+        },
+
+        "ssActions": {
+            "$id": "ssActions",
+            "type": "string",
+            "description": "C:Create, R:Retrieve, U:Update, D:Delete, V:, W:, S:Search",
+            "enum": [
+                "C",
+                "R",
+                "U",
+                "D",
+                "V",
+                "W",
+                "S"
+            ]
+        },
+        "ssMethod": {
+            "type": "object",
+            "properties": {
+                "name": {
+                    "description": "method name, its identifier",
+                    "type": "string"
+                },
+                "params": {
+                    "type": "object"
+                },
+                "handler": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#"
+                    },
+                    "description": "if not filename implement pipeline"
+                },
+                "jsHandler": {
+                    "description": "if exists means this method implementation uses javascript ",
+                    "type": "string"
+                },
+                "return": {
+                    "$ref": "#/definitions/simpleTypes"
+                }
+            },
+            "required": ["name"]
+        },
+        "ssObjectEvent": {
+            "description": "every json object can have some or all of these events, each item in event is a set",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "beforeCreate": {
+                    "type": [
+                        "object",
+                        "array"
+                    ]
+                },
+                "afterCreate": {
+                    "type": [
+                        "object",
+                        "array"
+                    ]
+                },
+                "beforeUpdate": {
+                    "type": [
+                        "object",
+                        "array"
+                    ]
+                },
+                "afterUpdate": {
+                    "type": [
+                        "object",
+                        "array"
+                    ]
+                },
+                "beforeDelete": {
+                    "type": [
+                        "object",
+                        "array"
+                    ]
+                },
+                "afterDelete": {
+                    "type": [
+                        "object",
+                        "array"
+                    ]
+                },
+                "onRead": {
+                    "type": [
+                        "object",
+                        "array"
+                    ]
+                }
+            }
+        },
+        "ssRule": {
+            "$id": "ssRule",
+            "type": "object",
+            "additionalProperties": false,
+            "description": "rule used in validation or roles",
+            "properties": {
+                "ruleId": {
+                    "description": "key of this rule",
+                    "type": "string"
+                },
+                "ruleOf": {
+                    "description": "which items related to this rule, items are addresses of related INNER nodes ",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "ruleTitle": {
+                    "description": "title of rule for advisor",
+                    "type": "string"
+                },
+                "ruleDescription": {
+                    "description": "description of rule for advisor",
+                    "type": "string"
+                },
+                "ruleDef": {
+                    "description": "definition of rule",
+                    "type": ["object", "array"]
+                },
+                "ruleType": {
+                    "enum": [
+                        "check",
+                        "trigger",
+                        "filter",
+                        "permission",
+                        "set",
+                        "emit"
+                    ],
+                    "description": "type of rule",
+                    "type": "string"
+                },
+                "ruleTime": {
+                    "description": "Time for run or evaluate this rule, for ruleType 'set' and 'trigger'",
+                    "type": "string",
+                    "enum": [
+                        "beforeCreate",
+                        "afterCreate",
+                        "beforeUpdate",
+                        "afterUpdate",
+                        "beforeDelete",
+                        "afterDelete",
+                        "onSearch",
+                        "onRead",
+                        "onWiew",
+                        "onLoad",
+                        "onStorageConnected",
+                        "every"
+                    ]
+                },
+                "async": {
+                    "description": "run async this rule",
+                    "type": "boolean"
+                },
+                "schedule": {
+                    "type": "string"
+                },
+                "timezone": {
+                    "type": "string"
+                }
+            },
+            "required": [
+                "ruleId",
+                "ruleDef"
+            ]
+        },
+        "ssRole": {
+            "$id": "ssRole",
+            "description": "definition of a role in Nolang",
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+                "roleId": {
+                    "description": "key of a role",
+                    "type": "string"
+                },
+                "permissions": {
+                    "description": "list of permissions to objects assigned to this role",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "properties": {
+                            "accessto": {
+                                "description": "node address to which permission assigned, default is this object",
+                                "type": "string",
+                                "default": ""
+                            },
+                            "access": {
+                                "type": "array",
+                                "items": {
+                                    "enum": [
+                                        "C",
+                                        "R",
+                                        "U",
+                                        "D",
+                                        "A"
+                                    ]
+                                },
+                                "description": "create, read, update, delete (CRUD), A:all",
+                                "default": "A"
+                            }
+                        },
+                        "required": [
+                            "access"
+                        ]
+                    }
+                },
+                "$$rules": {
+                    "description": "rules of this role",
+                    "type": "array",
+                    "items": {
+                        "$ref": "ssRule"
+                    }
+                }
+            },
+            "required": [
+                "permissions"
+            ]
+        },
+        "ssRel": {
+            "$id": "ssRel",
+            "type": "object",
+            "properties": {
+                "schema": {
+                    "type": "string",
+                    "description": "schema name relation to it"
+                },
+                "displayText": {
+                    "type": "string",
+                    "description": "what must be displayed like {{field1 + ' ' + field2}} "
+                },
+                "return": {
+                    "type": "string",
+                    "description": "field name return after lookup"
+                },
+                "view": {
+                    "type": "string",
+                    "description": "view in the schema which must be shown "
+                },
+                "key": {
+                    "type": "string",
+                    "description": "search in the schema by this key other than it's id"
+                },
+                "join": {
+                    "type": "boolean",
+                    "description": "join relational tables to fetch relation data"
+                },
+                "cache": {
+                    "description": "cache all data of lookup schema to fetch relation data",
+                    "anyOf": [
+                        {
+                            "type": "boolean"
+                        },
+                        {
+                            "type": "object",
+                            "properties": {
+                                "time": {
+                                    "type": "number",
+                                    "description": "expire after this time in seconds"
+                                },
+                                "filter": {
+                                    "description": "filter for loading data of related schema",
+                                    "type": "object"
+                                }
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        "ssUser": {
+            "$id": "ssUser",
+            "type": [
+                "object",
+                "string"
+            ],
+            "properties": {
+                "userId": {
+                    "type": "userid"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "roleId": {
+                                "type": "objectid"
+                            },
+                            "grantDate": {
+                                "type": "date"
+                            },
+                            "grantedBy": {
+                                "type": "string",
+                                "description": ""
+                            }
+                        },
+                        "required": [
+                            "roleId"
+                        ]
+                    }
+                },
+                "userGroups": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "groupId": {
+                                "type": "objectid"
+                            },
+                            "grantDate": {
+                                "type": "date"
+                            },
+                            "grantedBy": {
+                                "type": "string",
+                                "description": ""
+                            }
+                        },
+                        "required": [
+                            "groupId"
+                        ]
+                    }
+                }
+            }
+        },
+        "ssUserGroup": {
+            "$id": "ssUserGroup",
+            "type": "object",
+            "properties": {
+                "groupId": {
+                    "type": "objectid"
+                },
+                "roles": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "roleId": {
+                                "type": "string"
+                            },
+                            "grantDate": {
+                                "type": "date"
+                            },
+                            "grantedBy": {
+                                "type": "string",
+                                "description": ""
+                            }
+                        },
+                        "required": [
+                            "roleId"
+                        ]
+                    }
+                }
+            }
+        },
+        "ssView": {
+            "type": "object",
+            "$id": "ssView",
+            "properties": {
+                "viewId": {
+                    "description": "view id",
+                    "type": "string",
+                    "title": "View Id",
+                    "examples": ["LoginView"]
+                },
+                "channel": {
+                    "type": [
+                        "string",
+                        "array"
+                    ],
+                    "description": "view is specific for this channel",
+                    "examples": ["android, web, ios, web-1, embed1"]
+                },
+                "engine": {
+                    "description": "template engine name",
+                    "enum": [
+                        "html",
+                        "bootstrap",
+                        "react",
+                        "angular",
+                        "alpacajs",
+                        "android",
+                        "handlebars",
+                        "mustache",
+                        "jade",
+                        "nunjucks",
+                        "file",
+                        "json"
+                    ]
+                },
+                "render": {
+                    "description": "uri or id of renderer schema",
+                    "type": "string"
+                },
+                "template": {
+                    "type": [
+                        "string",
+                        "object",
+                        "array"
+                    ],
+                    "examples": ["<big>:value</big><u>:title</u>"],
+                    "properties": {
+                        "$type": {
+                            "type": "string"
+                        },
+                        "class": {
+                            "type": "string"
+                        },
+                        "layout": {
+                            "type": "string"
+                        },
+                        "self": {
+                            "type": "string"
+                        },
+                        "inputTemplate": {
+                            "$ref": "#/properties/template",
+                            "type": "object"
+                        },
+                        "keyTemplate": {
+                            "$ref": "#/properties/template",
+                            "type": "object"
+                        },
+                        "valueTemplate": {
+                            "$ref": "#/properties/template",
+                            "type": "object"
+                        },
+                        "listContainerTemplate": {
+                            "$ref": "#/properties/template",
+                            "type": "object"
+                        },
+                        "objectTemplate": {
+                            "$ref": "#/properties/template",
+                            "type": "object"
+                        },
+                        "listFooterTemplate": {
+                            "$ref": "#/properties/template",
+                            "type": "object"
+                        },
+                        "style": {
+                            "type": "object"
+                        }
+                    }
+                },
+                "$$rules": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "ssRule"
+                    }
+                },
+                "editable": {
+                    "type": [
+                        "array",
+                        "boolean"
+                    ],
+                    "default": false
+                },
+                "autoupdate": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "itemContainer": {
+                    "type": [
+                        "string",
+                        "boolean"
+                    ],
+                    "default": false
+                },
+                "defaultActions": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "actionbar": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "default": {
+                    "type": "boolean",
+                    "default": false
+                },
+                "absolute": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "format just by this view model not nest field views"
+                },
+                "hideEmpties": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "if true not embed fields their data is null"
+                },
+                "disabled": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "this view is not active"
+                },
+                "actions": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "properties": {
+                            "title": {
+                                "type": "string"
+                            },
+                            "click": {
+                                "type": "string"
+                            },
+                            "action": {
+                                "type": "string",
+                                "enum": [
+                                    "C",
+                                    "U",
+                                    "D",
+                                    "R",
+                                    "W",
+                                    "X",
+                                    "S"
+                                ]
+                            },
+                            "destination_id": {
+                                "type": "string"
+                            },
+                            "class": {
+                                "type": "string"
+                            },
+                            "post": {
+                                "type": "object"
+                            },
+                            "set": {
+                                "type": "object"
+                            },
+                            "send": {
+                                "type": "object",
+                                "properties": {
+                                    "$$header": {
+                                        "$ref": "ssHeader"
+                                    },
+                                    "$$schema": {
+                                        "type": "string"
+                                    }
+                                }
+                            },
+                            "visible": {
+                                "type": [
+                                    "boolean",
+                                    "string",
+                                    "object"
+                                ]
+                            }
+                        }
+                    }
+                },
+                "visibleFields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "hiddenFields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "fastLoadImage": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "if true base64 image catches in Redis and a key replaced to load like an image file"
+                },
+                "meta": {
+                    "type": "boolean",
+                    "description": "return meta data of schema and view if true"
+                }
+            },
+            "required": [
+
+            ]
+        },
+        "ssHeader": {
+            "type": "object",
+            "$id": "ssHeader",
+            "properties": {
+                "user": {
+                    "$ref": "ssUser"
+                },
+                "listen": {
+                    "title": "listen to changes",
+                    "type": "boolean",
+                    "description": "if needs to send changes to this command endpoint in the future?",
+                    "default": false
+                },
+                "action": {
+                    "$ref": "ssActions"
+                },
+                "channel": {
+                    "type": "string",
+                    "description": "which channel for select true view",
+                    "examples": ["android, web, ios, web-1, embed1"]
+                },
+                "view": {
+                    "type": ["string","object"],
+                    "description": "which view for select true view",
+                    "examples": ["list"]
+                },
+                "filter": {
+                    "description": "filter documents criteria",
+                    "type": "object"
+                },
+                "destination_id": {
+                    "type": "string"
+                },
+                "modal": {
+                    "type": "boolean",
+                    "description": "if true content must be located in a modal div"
+                },
+                "cache": {
+                    "description": "response of this command caches in redis by the key and expires after the time",
+                    "type": "object",
+                    "properties": {
+                        "key": {
+                            "type": "string"
+                        },
+                        "time": {
+                            "description": "expire after this time in seconds",
+                            "type": "number"
+                        }
+                    }
+                },
+                "microservice": {
+                    "description": "microservice name which needs this request packet run on it",
+                    "type": "string"
+                }
+            }
+        },
+        "ssStorage": {
+            "$id": "ssStorage",
+            "type": "object",
+            "properties": {
+                "table": {
+                    "type": "string",
+                    "description": "table name in sql storages if different from $id"
+                },
+                "collection": {
+                    "type": "string",
+                    "description": "collection name in nosql storages if different from $id"
+                },
+                "adapter": {
+                    "enum": [
+                        "file",
+                        "memory",
+                        "faker",
+                        "mongodb",
+                        "mysql",
+                        "oracle",
+                        "postgresql",
+                        "webservice",
+                        "couchbase",
+                        "json",
+                        "json5"
+                    ]
+                },
+                "data": {
+                    "type": "array"
+                },
+                "aggregate": {
+                    "description": "filter documents pipeline criteria including $group, $sort, $match, and ... or SQL",
+                    "type": ["array", "object"]
+                }
+            },
+            "if": {
+                "properties": { "adapter": { "const": "mysql" } },
+                "required": ["adapter"]
+            },
+            "then": {
+                "properties": {
+                    "host": {
+                        "type": "string"
+                    },
+                    "username": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "database": {
+                        "type": "string"
+                    },
+                    "table": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "fields": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    }
+                },
+                "required": ["host", "username","password","database","table"]
+            },
+            "else": {
+                "if": {
+                    "properties": { "adapter": { "const": "json" } },
+                    "required": ["adapter"]
+                },
+                "then": {
+                    "properties": {
+                        "data": {
+                            "type": "array"
+                        }
+                    },
+                    "required": ["data"]
+                }
+            }
+        },
+        "cssStyle": {
+            "allOf": [
+                {
+                    "$ref": "css/schema.json#"
+                },
+                {
+                    "$ref": "css/cssschema.json#"
+                },
+                {
+                    "$ref": "css/csstagschema.json#"
+                }
+            ]
+        }
+    },
+    "type": [
+        "object",
+        "boolean"
+    ],
+    "properties": {
+        "$id": {
+            "type": "string",
+            "format": "uri-reference"
+        },
+        "$schema": {
+            "type": "string",
+            "format": "uri"
+        },
+        "$ref": {
+            "type": "string",
+            "format": "uri-reference"
+        },
+        "$comment": {
+            "type": "string"
+        },
+        "title": {
+            "type": "string"
+        },
+        "description": {
+            "type": "string"
+        },
+        "default": true,
+        "readOnly": {
+            "type": "boolean",
+            "default": false
+        },
+        "examples": {
+            "type": "array",
+            "items": true
+        },
+        "multipleOf": {
+            "type": "number",
+            "exclusiveMinimum": 0
+        },
+        "maximum": {
+            "type": "number"
+        },
+        "exclusiveMaximum": {
+            "type": "number"
+        },
+        "minimum": {
+            "type": "number"
+        },
+        "exclusiveMinimum": {
+            "type": "number"
+        },
+        "maxLength": {
+            "$ref": "#/definitions/nonNegativeInteger"
+        },
+        "minLength": {
+            "$ref": "#/definitions/nonNegativeIntegerDefault0"
+        },
+        "pattern": {
+            "type": "string",
+            "format": "regex"
+        },
+        "additionalItems": {
+            "$ref": "#"
+        },
+        "items": {
+            "anyOf": [
+                {
+                    "$ref": "#"
+                },
+                {
+                    "$ref": "#/definitions/schemaArray"
+                }
+            ],
+            "default": true
+        },
+        "maxItems": {
+            "$ref": "#/definitions/nonNegativeInteger"
+        },
+        "minItems": {
+            "$ref": "#/definitions/nonNegativeIntegerDefault0"
+        },
+        "uniqueItems": {
+            "type": "boolean",
+            "default": false
+        },
+        "contains": {
+            "$ref": "#"
+        },
+        "maxProperties": {
+            "$ref": "#/definitions/nonNegativeInteger"
+        },
+        "minProperties": {
+            "$ref": "#/definitions/nonNegativeIntegerDefault0"
+        },
+        "required": {
+            "$ref": "#/definitions/stringArray"
+        },
+        "additionalProperties": {
+            "$ref": "#"
+        },
+        "definitions": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#"
+            },
+            "default": {}
+        },
+        "properties": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#"
+            },
+            "default": {}
+        },
+        "patternProperties": {
+            "type": "object",
+            "additionalProperties": {
+                "$ref": "#"
+            },
+            "propertyNames": {
+                "format": "regex"
+            },
+            "default": {}
+        },
+        "dependencies": {
+            "type": "object",
+            "additionalProperties": {
+                "anyOf": [
+                    {
+                        "$ref": "#"
+                    },
+                    {
+                        "$ref": "#/definitions/stringArray"
+                    }
+                ]
+            }
+        },
+        "propertyNames": {
+            "$ref": "#"
+        },
+        "const": true,
+        "enum": {
+            "type": "array",
+            "items": true,
+            "minItems": 1,
+            "uniqueItems": true
+        },
+        "type": {
+            "anyOf": [
+                {
+                    "$ref": "#/definitions/simpleTypes"
+                },
+                {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/simpleTypes"
+                    },
+                    "minItems": 1,
+                    "uniqueItems": true
+                }
+            ]
+        },
+        "format": {
+            "type": "string"
+        },
+        "faker": {
+            "type": "string"
+        },
+        "contentMediaType": {
+            "type": "string"
+        },
+        "contentEncoding": {
+            "type": "string"
+        },
+        "if": {
+            "$ref": "#"
+        },
+        "then": {
+            "$ref": "#"
+        },
+        "else": {
+            "$ref": "#"
+        },
+        "allOf": {
+            "$ref": "#/definitions/schemaArray"
+        },
+        "anyOf": {
+            "$ref": "#/definitions/schemaArray"
+        },
+        "oneOf": {
+            "$ref": "#/definitions/schemaArray"
+        },
+        "not": {
+            "$ref": "#"
+        },
+        "$$rules": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/ssRule"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+        },
+        "$$roles": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/ssRole"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+        },
+        "$$methods": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/ssMethod"
+            },
+            "minItems": 0,
+            "uniqueItems": true
+        },
+        "$$events": {
+            "$ref": "#/definitions/ssObjectEvent"
+        },
+        "$$views": {
+            "type": "array",
+            "items": {
+                "$ref": "#/definitions/ssView"
+            }
+        },
+        "$$schema": {
+            "type": "string"
+        },
+        "$$uses": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        },
+        "$$header": {
+            "description": "header in action request in ssDataPackets",
+            "$ref": "#/definitions/ssHeader"
+        },
+        "$$storage": {
+            "$ref": "#/definitions/ssStorage"
+        },
+        "$$hidden": {
+            "type": "boolean",
+            "default": false
+        },
+        "$$rel": {
+            "$ref": "#/definitions/ssRel"
+        }
+    },
+    "default": true
+}

@@ -1,0 +1,26 @@
+{
+    "$id": "console",
+//    "$schema": "../../../nolangjs/basic_schemas/nolang.entity.schema.json",
+    "type": "object",
+    "description": "methods for Nolang console",
+    "$$methods": [
+        {
+            "name": "log",
+            "params": {
+                "message": {
+                    "type": "string"
+                }
+            },
+            "jsHandler": "./console.js"
+        },
+        {
+            "name": "error",
+            "params": {
+                "message": {
+                    "type": "string"
+                }
+            },
+            "jsHandler": "./console.js"
+        }
+    ]
+}

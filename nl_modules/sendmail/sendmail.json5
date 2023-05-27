@@ -1,0 +1,15 @@
+{
+    "$id": "sendmail",
+//    "$schema": "../../../nolangjs/basic_schemas/nolang.entity.schema.json",
+    "type": "object",
+    "description": "methods to send email",
+    "$$methods": [
+        {
+            "name": "sendMail",
+            "params333": {
+
+            },
+            "jsHandler": "./sendmail.js"
+        }
+    ]
+}

@@ -1,0 +1,441 @@
+{
+    "$id": "no://nolang.app.schema",
+    "description": "json schema for any Nolang app config file",
+    "type": "object",
+    "properties": {
+        "name": {
+            "type": "string",
+            "description": "name of the app"
+        },
+        "schemas": {
+            "anyOf": [
+                {
+                    "description": "direct schemas",
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "$ref": "no://nolang.entity.schema"
+                    }
+                },
+                {
+                    "description": "schema loader",
+                    "type": "object",
+                    "properties": {
+                        "adapter": {
+                            "description": "type of adapter of schema loader",
+                            "type": "string",
+                            "enum": ["file","mongodb","mysql"],
+                            "default": "file"
+                        },
+                        "path": {
+                            "description": "path of folder containing app schemas",
+                            "type": "string"
+                        },
+                        "watch": {
+                            "description": "watch on changes of schema files to auto reload in Nolang",
+                            "type": "boolean",
+                            "default": false
+                        },
+                        "cache": {
+                            "description": "caching schemas information TODO",
+                            "type": "object",
+                            "properties": {
+                                "enabled": {
+                                    "description": "Is true when cache must be enabled",
+                                    "type": "boolean",
+                                    "default": false
+                                },
+                                "redis": {
+                                    "description": "Redis configs for cache",
+                                    "type": "object",
+                                    "properties": {
+                                        "time": {
+                                            "description": "How much is cache duration//TODO",
+                                            "type": "number"
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": ["path"]
+                }
+            ]
+        },
+        "modules": {
+            "description": "path of nl_modules",
+            "type": "string"
+        },
+        "storage": {
+            "description": "default storage config for app schemas",
+            "$ref": "no://nolang.entity.schema#/definitions/ssStorage"
+        },
+        "endpoints": {
+            "description": "all endpoints this app serves",
+            "type": "array",
+            "items": {
+                "type": "object",
+                "description": "config of one endpoint",
+                "oneOf": [
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["cli"]
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["type"]
+                    },
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["mqtt"]
+                            },
+                            "url": {
+                                "type": "string"
+                            },
+                            "publishTopic": {
+                                "type": "string",
+                                "description": "publish responses to this topic",
+                                "examples": ["thisEndpointTopic/+/res"]
+                            },
+                            "subscribeTopic": {
+                                "type": "string",
+                                "description": "subscribe to this topic for receiving request commands",
+                                "examples": ["thisEndpointTopic/+/req"]
+                            },
+                            "options": {
+                                "type": "object"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["type","url","publishTopic", "subscribeTopic"]
+                    },
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["redis"]
+                            },
+                            "url": {
+                                "description": "connection string in format redis[s]://[[username][:password]@][host][:port][/db-number]",
+                                "type": "string",
+                                "examples": ["redis://alice:foobared@awesome.redis.server:6380", "redis://localhost:6380"]
+                            },
+                            "publishChannels": {
+                                "type": "string",
+                                "description": "publish responses to this channel",
+                                "examples": ["thisEndpointChannel*res"]
+                            },
+                            "subscribeChannels": {
+                                "type": "string",
+                                "description": "subscribe to this channel for receiving request commands",
+                                "examples": ["thisEndpointChannel*req"]
+                            },
+                            "options": {
+                                "type": "object"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["type", "publishChannels", "subscribeChannels"]
+                    },
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["socket"]
+                            },
+                            "port": {
+                                "type": "number"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["type","port"]
+                    },
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["file","js"]
+                            },
+                            "filename": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["type","filename"]
+                    },
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["json"]
+                            },
+                            "script": {
+                                "type": ["object","array"]
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["type","script"]
+                    },
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
+                                "enum": ["http"]
+                            },
+                            "port": {
+                                "type": "number"
+                            },
+                            "static": {
+                                "description": "path of static files, could be relative or absolute",
+                                "type": "string"
+                            },
+                            "cors": {
+                                "description": "CORS options if needed CORS",
+                                "type": "object"
+                            },
+                            "upload": {
+                                "description": "File upload options if needed",
+                                "type": "object",
+                                "properties": {
+                                    "root": {
+                                        "type": "string",
+                                        "description": "base route of saving all files of any entity, files will be saved in path /[root]/[entityName]/[$$objid]/[fieldName]"
+                                    },
+                                    "maxSize": {
+                                        "type": "number",
+                                        "description": "max size of file in Bytes"
+                                    }
+                                }
+                            },
+                            "routes": {
+                                "type": "array",
+                                "description": "list of handlers of routes in http endpoint",
+                                "items": {
+                                    "type": "object",
+                                    "properties": {
+                                        "path": {
+                                            "description": "Relative http path to receive to this route handler",
+                                            "type": "string"
+                                        },
+                                        "type": {
+                                            "description": "Sets the Content-Type HTTP header to the MIME type as determined by the specified type",
+                                            "type": "string"
+                                        },
+                                        "method": {
+                                            "description": "HTTP method",
+                                            "type": "string",
+                                            "enum": ["all","ws","checkout","copy","delete","get","head","lock","merge","mkactivity","mkcol","move","m-search","notify","options","patch","post","purge","put","report","search","subscribe","trace","unlock","unsubscribe"]
+                                        },
+                                        "return": {
+                                            "description": "it is default command of this route and Nolang will return its response",
+                                            "type": "object",
+                                            "$ref": "no://nolang.entity.schema#"
+                                        },
+                                        "cors": {
+                                            "description": "CORS options if needed CORS for this route",
+                                            "type": "object"
+                                        },
+                                        "middleware": {
+                                            "description": "TODO"
+                                        }
+                                    },
+                                    "additionalProperties": false,
+                                    "required": ["path","method"]
+                                }
+                            },
+                            "helmet": {
+                                "description": "Helmet helps you secure your Express apps by setting various HTTP headers. see https://helmetjs.github.io",
+                                "type": "object"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["type","port"]
+                    }
+                ]
+            }
+        },
+        "authenticate": {
+            "description": "If this app needs to authenticate",
+            "type": "boolean"
+        },
+        "user": {
+            "description": "user information for this app",
+            "type": "object",
+            "properties": {
+                "schema": {
+                    "description": "the $Id of the schema users information is stored",
+                    "type": "string"
+                },
+                "usernameField": {
+                    "description": "name of field indicating username of users",
+                    "type": "string"
+                },
+                "passwordField": {
+                    "description": "name of field indicating password of users",
+                    "type": "string"
+                },
+                "rolesField": {
+                    "description": "name of field indicating roles assigned to user",
+                    "type": "string"
+                }
+            }
+        },
+        "microservices": {
+            "description": "microservice clients to other services (other apps created with nolang with compatible endpoints)",
+            "type": "array",
+            "items": {
+                "oneOf": [
+                    {
+                        "properties": {
+                            "name": {
+                                "description": "key of this microservice",
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["mqtt"]
+                            },
+                            "url": {
+                                "type": "string"
+                            },
+                            "publishTopic": {
+                                "type": "string",
+                                "description": "publish requests to this topic",
+                                "examples": ["targetServiceEndpointTopic/myClientId/req"]
+                            },
+                            "subscribeTopic": {
+                                "type": "string",
+                                "description": "subscribe to this topic for receiving request commands",
+                                "examples": ["targetServiceEndpointTopic/myClientId/res"]
+                            },
+                            "options": {
+                                "type": "object"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["name","type","url","publishTopic", "subscribeTopic"]
+                    },
+                    {
+                        "properties": {
+                            "name": {
+                                "description": "key of this microservice",
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["redis"]
+                            },
+                            "url": {
+                                "type": "string"
+                            },
+                            "publishChannel": {
+                                "type": "string",
+                                "description": "publish requests to this channel",
+                                "examples": ["targetServiceEndpointChannelMYCLIENTIDreq"]
+                            },
+                            "subscribeChannel": {
+                                "type": "string",
+                                "description": "subscribe to this channel for receiving request commands",
+                                "examples": ["targetServiceEndpointChannelMYCLIENTIDres"]
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["name","type","publishChannel", "subscribeChannel"]
+                    },
+                    {
+                        "properties": {
+                            "name": {
+                                "description": "key of this microservice",
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["socket"]
+                            },
+                            "port": {
+                                "type": "number"
+                            },
+                            "host": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["name","type","port"]
+                    },
+                    {
+                        "properties": {
+                            "name": {
+                                "description": "key of this microservice",
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["http"]
+                            },
+                            "method": {
+                                "type": "string",
+                                "enum": ["post","put","push","ws"],
+                                "default": "post"
+                            },
+                            "url": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["name","type","url"]
+                    }
+                ]
+            }
+        },
+        "logger": {
+            "description": "logger options",
+            "type": "object",
+            "properties": {
+                "terminal": {
+                    "description": "TODO, log on terminal",
+                    "type": "boolean"
+                },
+                "files": {
+                    "description": "target files keys are level and values are files' absolute or relative address",
+                    "type": "object",
+                    "properties": {
+                        "fatal": {
+                            "type": "string"
+                        },
+                        "error": {
+                            "type": "string"
+                        },
+                        "warn": {
+                            "type": "string"
+                        },
+                        "info": {
+                            "type": "string"
+                        },
+                        "debug": {
+                            "type": "string"
+                        },
+                        "trace": {
+                            "type": "string"
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "schema": {
+                    "description": "TODO,  log to one schema by this name",
+                    "type": "string"
+                },
+                "microservice": {
+                    "description": "TODO, if log schema is in another service, this is the service name",
+                    "type": "string"
+                }
+            }
+        }
+    },
+    "required": [
+        "schemas", "endpoints"
+    ]
+}

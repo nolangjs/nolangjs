@@ -1,0 +1,15 @@
+{
+    "$id": "webservices",
+//    "$schema": "../../../nolangjs/basic_schemas/nolang.entity.schema.json",
+    "type": "object",
+    "description": "methods to call a webservice",
+    "$$methods": [
+        {
+            "name": "callWebService",
+            "params22": {
+
+            },
+            "jsHandler": "webservice_nl_method_handler.js"
+        }
+    ]
+}
