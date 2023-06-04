@@ -433,6 +433,10 @@
                     "type": "string"
                 }
             }
+        },
+        "cluster": {
+            "description": "How many CPU cores Nolang app can use? activated if this items exists and its value was bigger than zero ",
+            "type": "number"
         }
     },
     "required": [

@@ -71,17 +71,49 @@ const appSchema = require('../basic_schemas/nolang.app.schema.json');
 // let sookid;
 // let sockio;
 
+function getAppName() {
+    //name of package file
+    const appName = process.argv[3] || 'app.nolang.json5';
+
+    if (process.argv[2]) {
+        global.appPath = path.resolve(process.argv[2]);
+    } else {
+        global.appPath = process.cwd();
+    }
+    return appName;
+}
+
+function getAppConf(appName) {
+    // logger.info("$$ finding app root ", global.appPath);
+
+    //appConf load configuration
+    const appConf = require(path.join(global.appPath, appName));
+    return appConf;
+}
+
 class nlCompiler {
 
+    loadedSchemas = [];
+    compiledSchemas = [];
+    conf = {};
+    listeners = {};
+    inited = false;
 
-    constructor (/*theapp_, server*/) {this.iii = 0;
+
+
+    constructor () {
+        this.nlCompile();
+    }
+
+    /*constructor (/!*theapp_, server*!/) {
+        ///this.iii = 0;
         // let theapp = JSON.parse(JSON.stringify(theapp_));//todo delete
 
         this.loadedSchemas = [];
         this.compiledSchemas = [];
         this.conf = {};
 
-        /** todo define listeners
+        /!** todo define listeners
          * listeners
          * {
          *     "schema id":[
@@ -92,7 +124,7 @@ class nlCompiler {
          *     ]
          * }
          * @type {{}}
-         */
+         *!/
         this.listeners = {};
 
 
@@ -122,7 +154,6 @@ class nlCompiler {
         // //setting appvars
         // if (this.ssConf.appvars)
         //     Object.assign(this.appvars, this.ssConf.appvars);
-
         //todo move to apis
         // if(this.appvars && this.appvars.usesocket)
         //     this.setSocketio(theapp, server);
@@ -136,7 +167,7 @@ class nlCompiler {
         //     this.appvars.i18n = this.ssConf.i18n;
         // }
 
-        /*//logger routing todo move to log
+        /!*!//logger routing todo move to log
         this.logdir = this.approot + this.ssConf.logdir;
 
         console = winston.createLogger({
@@ -161,7 +192,7 @@ class nlCompiler {
                     format: 'YYYY-MM-DD HH:mm:ss'
                 })
             }));
-        }*/
+        }*!/
 
 
         //todo test
@@ -178,9 +209,9 @@ class nlCompiler {
         //     if (!err) {
         //         //console.log('received data: ' + data);
         //         thes.index_html = data;
-        //         /*response.writeHead(200, {'Content-Type': 'text/html'});
+        //         /!*response.writeHead(200, {'Content-Type': 'text/html'});
         //          response.write(data);
-        //          response.end();*/
+        //          response.end();*!/
         //     } else {
         //         console.log(err);
         //     }
@@ -204,7 +235,7 @@ class nlCompiler {
 
 
         this.nlCompile();
-    }
+    }*/
 
     nlCompile() {
         // redisClient.flushall();
@@ -252,21 +283,11 @@ class nlCompiler {
         // const appPath = process.argv[2] || process.cwd();
         // console.log(process.argv,process.cwd(), __dirname);
 
-        //name of package file
-        const appName = process.argv[3] || 'app.nolang.json5';
-
-        if(process.argv[2]) {
-            global.appPath = path.resolve(process.argv[2]);
-        } else {
-            global.appPath = process.cwd();
-        }
+        const appName = getAppName();
 
         // global.appPath = path.join(__dirname, appPath);
 
-        logger.debug("$$ finding app root ", global.appPath);
-
-        //appConf load configuration
-        const appConf = require(path.join(global.appPath, appName));
+        const appConf = getAppConf(appName);
 
         logger.debug('app nolang file loaded', appConf);
 
@@ -1002,7 +1023,7 @@ class nlCompiler {
         else
             delete req_packet.$$disable;
 
-        if(is_Array(req_packet)){
+        if(is_Array(req_packet)) {
             let thes = this;
             let lastReturn = null;
             //_.forEach(req_packet, async function (_apacket) {
@@ -2552,9 +2573,41 @@ class nlCompiler {
 
 }
 
-const _nlCompiler = new nlCompiler();
 
-module.exports = nlCompiler;
+
+
+
+let _conf = getAppConf(getAppName());
+if(_conf?.cluster) {
+    const cluster = require('cluster');
+    cluster.schedulingPolicy = cluster.SCHED_RR;
+    const process1 = require('process');
+    let numCPUs = require('os').cpus().length;
+
+    if((_conf.cluster > 0) && (_conf.cluster<numCPUs)){
+        numCPUs = _conf.cluster;
+    }
+
+    if (cluster.isMaster) {
+        logger.trace(`Primary ${process1.pid} is running`);
+
+        // Fork workers.
+        for (let i = 0; i < numCPUs; i++) {
+            logger.log('Run Nolang on cluster ' + (i + 1))
+            cluster.fork();
+        }
+
+        cluster.on('exit', (worker, code, signal) => {
+            logger.log(`worker ${worker.process.pid} died`);
+        });
+    } else {
+        const _nlCompiler = new nlCompiler();
+    }
+} else {
+    const _nlCompiler = new nlCompiler();
+}
+
+// module.exports = _nlCompiler.runPacket;
 
 function is_Array(item) {
     return (
