@@ -32,8 +32,8 @@
                             "type": "string"
                         },
                         "watch": {
-                            "description": "watch on changes of schema files to auto reload in Nolang",
-                            "type": "boolean",
+                            "description": "watch on changes of schema files to auto reload in Nolang, can be true to use default port or set port number directly in watch",
+                            "type": ["boolean","number"],
                             "default": false
                         },
                         "cache": {
@@ -117,6 +117,32 @@
                         "properties": {
                             "type": {
                                 "type": "string",
+                                "enum": ["amqp"]
+                            },
+                            "url": {
+                                "type": "string"
+                            },
+                            "publishQueue": {
+                                "type": "string",
+                                "description": "publish responses to this queue",
+                                "examples": ["Q4res"]
+                            },
+                            "subscribeQueue": {
+                                "type": "string",
+                                "description": "subscribe to this queue for receiving request commands",
+                                "examples": ["Q4req"]
+                            },
+                            "options": {
+                                "type": "object"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["type","url","subscribeQueue","publishQueue"]
+                    },
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
                                 "enum": ["redis"]
                             },
                             "url": {
@@ -195,7 +221,35 @@
                             },
                             "cors": {
                                 "description": "CORS options if needed CORS",
-                                "type": "object"
+                                "type": "object",
+                                "properties": {
+                                    "origin": {
+                                        "type": "string"
+                                    },
+                                    "methods": {
+                                        "type": "string"
+                                    },
+                                    "preflightContinue": {
+                                        "type": "boolean"
+                                    },
+                                    "optionsSuccessStatus": {
+                                        "type": "number"
+                                    }
+                                }
+                            },
+                            "filter": {
+                                "description": "filter ips",
+                                "type": "object",
+                                "properties": {
+                                    "ips": {
+                                        "description": "IP list"
+                                    },
+                                    "mode": {
+                                        "description": "deny or allow",
+                                        "enum": ["deny", "allow"],
+                                        "type": "string"
+                                    }
+                                }
                             },
                             "upload": {
                                 "description": "File upload options if needed",
@@ -327,6 +381,30 @@
                             },
                             "type": {
                                 "type": "string",
+                                "enum": ["amqp"]
+                            },
+                            "url": {
+                                "type": "string"
+                            },
+                            "queue": {
+                                "type": "string",
+                                "description": "name of queue"
+                            },
+                            "options": {
+                                "type": "object"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["name","type","url","queue"]
+                    },
+                    {
+                        "properties": {
+                            "name": {
+                                "description": "key of this microservice",
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
                                 "enum": ["redis"]
                             },
                             "url": {
@@ -436,7 +514,7 @@
         },
         "cluster": {
             "description": "How many CPU cores Nolang app can use? activated if this items exists and its value was bigger than zero ",
-            "type": "number"
+            "type": ["number","boolean"]
         }
     },
     "required": [

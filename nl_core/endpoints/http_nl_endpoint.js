@@ -1,6 +1,5 @@
 const nl_endpoint = require('./nl_endpoint');
 const express = require('express');
-const cors = require('cors');
 const fileUpload = require("express-fileupload");
 const bodyParser = require('body-parser');
 const express_ws = require('express-ws');
@@ -22,14 +21,17 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
 
         const port = this.conf.port;
 
-        let thes = this;
+        function customHeaders( req, res, next ){
+            app.disable( 'x-powered-by' );
 
-        //main post handler of endpoint http //todo no need
-        /*app['post'](this.conf.path,(req, res) => {
-            thes.nl_endpoint_method(req.body).then(response=>{
-                res.json(response);
-            })
-        });*/
+            res.setHeader( 'X-Powered-By', 'Nolang Http Endpoint' );
+
+            next();
+        }
+
+        app.use( customHeaders );
+
+        let thes = this;
 
         //public folder
         const staticPath = this.conf.static;
@@ -45,7 +47,29 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
 
         //cors for all
         if(this.conf.cors) {
+            const cors = require('cors');
             app.use(cors(this.conf.cors))
+        }
+
+        //filter for all
+        if(this.conf.filter) {
+            const ipfilter = require('express-ipfilter').IpFilter;
+            app.use(ipfilter(this.conf.filter.ips, {mode: this.conf.filter.mode}));
+
+            const {IpDeniedError} = require("express-ipfilter");
+            app.use((err, req, res, _next) => {
+                console.log('Error handler', err)
+                if (err instanceof IpDeniedError) {
+                    res.status(err.status || 401).json({'error':err, 'message': 'Your ip has not access'})
+                } else {
+                    res.status(err.status || 500)
+                }
+
+                res.render('error', {
+                    message: 'You shall not pass',
+                    error: err
+                })
+            })
         }
 
         //file upload for all
@@ -70,9 +94,13 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
         for(let route of this.conf.routes) {
             const method = route.method.toLowerCase();
             let _cors = (req, res, next)=>next();
+
+            //cors for route
             if(route.cors){
+                const cors = require('cors');
                 _cors = cors(route.cors);
             }
+
             if(method === 'ws') {
                 const expressWs = express_ws(app);
                 //listen to every web socket connection
@@ -185,8 +213,13 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
         }
 
         if(this.conf?.watch) {
-            const reload_ = require('reload')
-            reload_(app).then(function (reloadReturned) {
+            const reload_ = require('reload');
+            let opt = {};
+            if(typeof this.conf.watch === "number") {
+                logger.info('http reload is activated on port '+ this.conf.watch);
+                opt.port = this.conf.watch;
+            }
+            reload_(app, opt).then(function (reloadReturned) {
                 // reloadReturned is documented in the returns API in the README
                 // Reload started, start web server
                 /*server.listen(app.get('port'), function () {

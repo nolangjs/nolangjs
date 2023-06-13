@@ -15,6 +15,7 @@ class storage_lowdb extends storage_main {
             super('memory');
             this._mode = 'memory';
             this.db = low(new Memory());
+            this.db.defaultValue = {};
         } else {
             super('file');
             this._mode = 'file';
@@ -71,7 +72,7 @@ class storage_lowdb extends storage_main {
         const collection = schema.$id;
 
         //TODO need logs
-        let all = this.db.get(collection);
+        let all = await this.db.get(collection);
         let res = all;
         //replace id name
         if(this.storage.id) {

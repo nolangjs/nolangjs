@@ -38,7 +38,6 @@ The schema of an entity in its simplest format can be like this:
 
 ### Manipulating data in entities
 When we want to ask from a NoLang program to do something, we must use NoLang Scripts. 
-To connect and send a Script to NoLang program, we must use NoLang Endpoints which is described next.
 ```json 
 {
 	"$$schema": "entity-schema-id",
@@ -49,6 +48,8 @@ To connect and send a Script to NoLang program, we must use NoLang Endpoints whi
 	"FieldName2": 25
 }
 ```
+To connect and send a Script to NoLang program, we must use NoLang Endpoints which is described next.
+
 
 
 # Nolang Application

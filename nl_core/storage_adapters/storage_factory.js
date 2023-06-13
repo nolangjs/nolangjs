@@ -2,7 +2,8 @@ const logger = global.logger;
 
 module.exports = async function storage_factory(storage) {
     let storageAdapter = storage.adapter;
-    if (storageAdapter === 'memory' || storageAdapter === 'file') storageAdapter = 'lowdb';//todo bad naming adapters in this layer
+    if (storageAdapter === 'memory' || storageAdapter === 'file')
+        storageAdapter = 'nedb';//todo bad naming adapters in this layer
 
     try{
         let _adapter = require('./storage.' + storageAdapter);

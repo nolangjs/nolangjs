@@ -98,6 +98,7 @@ class nlCompiler {
     conf = {};
     listeners = {};
     inited = false;
+    adapters = {};
 
 
 
@@ -1432,7 +1433,7 @@ class nlCompiler {
             if (rule.ruleType === 'trigger') {
                 if(rule.ruleTime === 'every') {
                     let thes = this;
-                    logger.log('add cron on '+rule.schedule+' for '+rule.id)
+                    logger.log('add cron on '+rule.schedule+' for '+rule.ruleId)
                     cron.schedule(rule.schedule, () => {
                         runRule.bind(thes)(rule);
                     }, {
@@ -1504,11 +1505,14 @@ class nlCompiler {
 
             //get storage from storage factory
             const storage_factory = require('./storage_adapters/storage_factory');
-            let adapter = await storage_factory.call(this, storage);
-
+            let adapter = this.adapters[packet.$$schema];
             if(!adapter) {
-                logger.error('could not detect adapter for storage', storage);
-                return {success: false, error: 'storage detection unsuccessful.'}
+                adapter = await storage_factory.call(this, storage);
+                if(!adapter) {
+                    logger.error('could not detect adapter for storage', storage);
+                    return {success: false, error: 'storage detection unsuccessful.'}
+                }
+                this.adapters[packet.$$schema] = adapter;
             }
 
 
@@ -1697,6 +1701,7 @@ class nlCompiler {
 
                 await this.runRuleOf(schema, 'beforeUpdate', packet);
 
+                //todo, change here update to read and if was ok, update it , then remove commit method
                 let updateList = await adapter.update(
                     schema,
                     packet,
@@ -1868,7 +1873,7 @@ class nlCompiler {
     assertJson(json, file) {
         //very important:
         if(!json.$$schema){
-            logger.error("Could'nt Validate \"" + file + "\", has not $$schema");
+            logger.error("Can't validate \"" + file + "\", has not $$schema");
             return false;
         }
         let $schema = json.$$schema;
@@ -2550,14 +2555,14 @@ class nlCompiler {
     }*/
 
 
-    static checkEmits(packet, header, action, data_message){
+    /*static checkEmits(packet, header, action, data_message){
         logger.log('check emits ');
         // let itsSchema = this.ajv.getSchema(packet.$$schema).schema;
         // let roles = itsSchema.$$roles;
 
         if (header && header.emit) {
             let emit = header.emit;
-            // sook.broadcast.emit(/*header.emit.receiver.role || header.emit.receiver.user ||*/ 'message', header.emit.message);
+            // sook.broadcast.emit(/!*header.emit.receiver.role || header.emit.receiver.user ||*!/ 'message', header.emit.message);
             let room = emit.receiver.role || emit.receiver.user;
             let event = 'message';
             let msg = '';
@@ -2569,7 +2574,7 @@ class nlCompiler {
             }
             sockio.to(room).emit(event , msg);
         }
-    }
+    }*/
 
 }
 
@@ -2584,7 +2589,7 @@ if(_conf?.cluster) {
     const process1 = require('process');
     let numCPUs = require('os').cpus().length;
 
-    if((_conf.cluster > 0) && (_conf.cluster<numCPUs)){
+    if((typeof _conf.cluster === 'number') && (_conf.cluster > 0) && (_conf.cluster<numCPUs)){
         numCPUs = _conf.cluster;
     }
 

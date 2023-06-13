@@ -94,7 +94,8 @@ class nl_logger {
         this.log(msg, 'trace', data);
     }
 
-    log(msg, level, data) {
+    log(msg, level, _data) {
+        let data = _data ? {..._data} : null;
         //format msg
         if (data) {
             if (typeof data === 'object') {
