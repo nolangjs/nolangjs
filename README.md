@@ -111,7 +111,7 @@ After installing nolangjs package, Nolang cli can be used to run a Nolang applic
 npm i nolangjs -g
 ```
 ```
-nolang app.nolang.json
+nolang /path/to/dir app.nolang.json
 ```
 
 # Documentation
