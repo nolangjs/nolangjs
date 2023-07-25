@@ -115,4 +115,8 @@ nolang /path/to/dir app.nolang.json
 ```
 
 # Documentation
-Refer to Nolang website by address https://www.nolang.org
+Refer to Nolang website by address https://www.nolang.org.
+
+
+## Contact us
+You can connect us with info[@]nolang.org.

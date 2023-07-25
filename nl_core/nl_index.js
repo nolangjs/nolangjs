@@ -468,8 +468,9 @@ class nlCompiler {
 
         const thes = this;
 
-        this.ajv.addKeyword('$$rules', {
-            // type: 'object',
+        this.ajv.addKeyword( {
+            keyword: '$$rules',
+            type: 'object',
             compile: function (rules, parentSchema) {
                 /*console.log(rules);
                  console.log(parentSchema);
@@ -553,8 +554,9 @@ class nlCompiler {
             errors: true
         });*/
 
-        this.ajv.addKeyword('$$rel', {
-            // type: 'object',
+        this.ajv.addKeyword({
+            keyword: '$$rel',
+            type: 'object',
             /*sscompile: function (header, parentSchema) {
              // console.log('header');
              // console.log(header);
