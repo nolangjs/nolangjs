@@ -29,7 +29,10 @@ class storage_nedb extends storage_main {
         delete packet.$$objid;
         return await new Promise((resolve, reject) => {
             this.db.insert(packet, (err, newDoc) => {
-                if(err) reject(err);
+                if(err) {
+                    reject(err);
+                    return {success: false}
+                }
                 newDoc.$$objid = newDoc._id;
                 delete newDoc._id;
                 resolve(newDoc);
@@ -38,12 +41,28 @@ class storage_nedb extends storage_main {
     }
 
     async read(schema, filter, filterrulesMethod, packet) {
-        logger.trace("read from "+ schema.$id, packet)
-        let all = await new Promise((resolve, reject) => this.db.find(filter, (err, docs)=>{
-            if(err) reject(err);
+        logger.trace("read from " + schema.$id, packet);
+
+        let cursor = this.db.find(filter);
+
+        if (packet.$$header.skip) {
+            cursor.skip(packet.$$header.skip)
+        }
+
+        if (packet.$$header.limit) {
+            cursor.limit(packet.$$header.limit)
+        }
+
+        if (packet.$$header.sort) {
+            cursor.sort(packet.$$header.sort)
+        }
+
+
+        let res = await new Promise((resolve, reject) => cursor.exec((err, docs) => {
+            if (err) reject(err);
             resolve(docs)
         }));
-        let res = all;
+
         //replace id name
         if(this.storage.id) {
             if(filter && filter.$$objid){

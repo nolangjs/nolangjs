@@ -664,6 +664,42 @@
                     "description": "filter documents criteria",
                     "type": "object"
                 },
+                "skip": {
+                    "description": "skip first of results",
+                    "type": "number"
+                },
+                "limit": {
+                    "description": "limitation of result docs",
+                    "type": "number"
+                },
+                "sort": {
+                    "description": "sort of result docs",
+                    "oneOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "type": "string"
+                            }
+                        },
+                        {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "integer",
+                                "oneOf": [
+                                    {
+                                        "maximum": 1,
+                                        "minimum": 1
+                                    },
+                                    {
+                                        "maximum": -1,
+                                        "minimum": -1
+                                    }
+                                ]
+                            }
+                        }
+                    ]
+
+                },
                 "destination_id": {
                     "type": "string"
                 },
@@ -690,13 +726,34 @@
                 }
             }
         },
-        "ssStorage": {
+        "___ssStorage_old_": {
             "$id": "ssStorage",
             "type": "object",
             "properties": {
                 "table": {
                     "type": "string",
                     "description": "table name in sql storages if different from $id"
+                },
+                "host": {
+                    "type": "string"
+                },
+                "username": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "database": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "fields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "collection": {
                     "type": "string",
@@ -726,11 +783,43 @@
                 }
             },
             "if": {
-                "properties": { "adapter": { "const": "mysql" } },
-                "required": ["adapter"]
+                "properties": {
+                    "adapter": {
+                        "oneOf": [
+                            {
+                                "const": "mysql"
+                            },
+                            {
+                                "const": "postgresql"
+                            }
+                        ]
+                    }
+                }
             },
             "then": {
+                "required": ["host", "username","password","database","table"]
+            },
+            "else": {
+                "if": {
+                    "properties": { "adapter": { "oneOf": ["json"] } }
+                },
+                "then": {
+                    "required": ["data"]
+                }
+            }
+        },
+        "storages": {
+            "s_mysql": {
                 "properties": {
+                    "adapter": {
+                        "enum": [
+                            "mysql"
+                        ]
+                    },
+                    "table": {
+                        "type": "string",
+                        "description": "table name in sql storages if different from $id"
+                    },
                     "host": {
                         "type": "string"
                     },
@@ -743,7 +832,43 @@
                     "database": {
                         "type": "string"
                     },
+                    "id": {
+                        "type": "string"
+                    },
+                    "fields": {
+                        "type": "array",
+                        "items": {
+                            "type": "string"
+                        }
+                    },
+                    "aggregate": {
+                        "description": "filter documents pipeline criteria including $group, $sort, $match, and ... or SQL",
+                        "type": ["array", "object"]
+                    }
+                },
+                "required": ["host", "username","database"]
+            },
+            "s_postgres": {
+                "properties": {
+                    "adapter": {
+                        "enum": [
+                            "postgresql"
+                        ]
+                    },
                     "table": {
+                        "type": "string",
+                        "description": "table name in sql storages if different from $id"
+                    },
+                    "host": {
+                        "type": "string"
+                    },
+                    "user": {
+                        "type": "string"
+                    },
+                    "password": {
+                        "type": "string"
+                    },
+                    "database": {
                         "type": "string"
                     },
                     "id": {
@@ -754,24 +879,162 @@
                         "items": {
                             "type": "string"
                         }
+                    },
+                    "collection": {
+                        "type": "string",
+                        "description": "collection name in nosql storages if different from $id"
+                    },
+                    "aggregate": {
+                        "description": "filter documents pipeline criteria including $group, $sort, $match, and ... or SQL",
+                        "type": ["array", "object"]
                     }
                 },
-                "required": ["host", "username","password","database","table"]
+                "required": ["host", "user","database"]
             },
-            "else": {
-                "if": {
-                    "properties": { "adapter": { "const": "json" } },
-                    "required": ["adapter"]
-                },
-                "then": {
-                    "properties": {
-                        "data": {
-                            "type": "array"
-                        }
+            "s_file": {
+                "properties": {
+                    "adapter": {
+                        "enum": [
+                            "file"
+                        ]
                     },
-                    "required": ["data"]
+                    "path": {
+                        "type": "string",
+                        "description": "relative path to json file"
+                    }
+                },
+                "required": ["path"]
+            },
+            "s_csv": {
+                "properties": {
+                    "adapter": {
+                        "enum": [
+                            "csv"
+                        ]
+                    },
+                    "path": {
+                        "type": "string",
+                        "description": "relative path to csv file"
+                    }
+                },
+                "required": ["path"]
+            },
+            "s_json": {
+                "properties": {
+                    "adapter": {
+                        "enum": [
+                            "json"
+                        ]
+                    },
+                    "path1": {
+                        "type": "string",
+                        "description": "relative path to json file"
+                    }
+                },
+                "required": ["path"]
+            },
+            "s_inline": {
+                "properties": {
+                    "adapter": {
+                        "enum": [
+                            "inline"
+                        ]
+                    },
+                    "data": {
+                        "type": "array"
+                    }
+                },
+                "required": ["data"]
+            },
+            "s_faker": {
+                "properties": {
+                    "adapter": {
+                        "enum": [
+                            "faker"
+                        ]
+                    },
+                    "count": {
+                        "type": "number"
+                    }
+                }
+            },
+            "s_memory": {
+                "properties": {
+                    "adapter": {
+                        "enum": [
+                            "memory"
+                        ]
+                    }
+                }
+            },
+            "s_mongodb": {
+                "properties": {
+                    "adapter": {
+                        "enum": [
+                            "mongodb"
+                        ]
+                    },
+                    "url": {
+                        "type": "string"
+                    },
+                    "database": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "collection": {
+                        "type": "string",
+                        "description": "collection name in nosql storages if different from $id"
+                    },
+                    "aggregate": {
+                        "description": "filter documents pipeline criteria including $group, $sort, $match, and ... or SQL",
+                        "type": ["array", "object"]
+                    }
+                },
+                "required": ["url"]
+            },
+            "s_default": {
+                "properties": {
+                    "adapter": {
+                        "enum": ["default"]
+                    }
                 }
             }
+        },
+        "ssStorage": {
+            "oneOf": [
+                {
+                    "$ref": "#/definitions/storages/s_default"
+                },
+                {
+                    "$ref": "#/definitions/storages/s_faker"
+                },
+                {
+                    "$ref": "#/definitions/storages/s_file"
+                },
+                {
+                    "$ref": "#/definitions/storages/s_json"
+                },
+                {
+                    "$ref": "#/definitions/storages/s_inline"
+                },
+                {
+                    "$ref": "#/definitions/storages/s_memory"
+                },
+                {
+                    "$ref": "#/definitions/storages/s_mongodb"
+                },
+                {
+                    "$ref": "#/definitions/storages/s_mysql"
+                },
+                {
+                    "$ref": "#/definitions/storages/s_postgres"
+                },
+                {
+                    "$ref": "#/definitions/storages/s_csv"
+                }
+            ]
         },
         "cssStyle": {
             "allOf": [

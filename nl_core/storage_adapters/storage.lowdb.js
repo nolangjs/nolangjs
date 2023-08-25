@@ -6,6 +6,7 @@ const FileSync = require('lowdb/adapters/FileSync');
 const Memory = require('lowdb/adapters/Memory');
 const storage_main = require('./storage.main');
 const logger = global.logger;
+const orderBy = require('./orderby.utils');
 
 class storage_lowdb extends storage_main {
 
@@ -17,7 +18,7 @@ class storage_lowdb extends storage_main {
             this.db = low(new Memory());
             this.db.defaultValue = {};
         } else {
-            super('file');
+            super('json');
             this._mode = 'file';
 
             //TODO not require ssConf hear
@@ -67,7 +68,7 @@ class storage_lowdb extends storage_main {
         return packet;
     }
 
-    async read(schema, filter, filterrulesMethod) {
+    async read(schema, filter, filterrulesMethod, packet) {
         await super.read(schema, filter, filterrulesMethod);
         const collection = schema.$id;
 
@@ -88,6 +89,18 @@ class storage_lowdb extends storage_main {
 
         for(let row of res){
             delete row.$$record;
+        }
+
+        if (packet.$$header.skip) {
+            res = res.splice(packet.$$header.skip);
+        }
+
+        if (packet.$$header.limit) {
+            res = res.slice(0, packet.$$header.limit);
+        }
+
+        if (packet.$$header.sort) {
+            res = res.sort(orderBy(packet.$$header.sort));
         }
 
         return res.value();

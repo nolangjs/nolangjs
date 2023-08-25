@@ -21,7 +21,6 @@ class storage_mongodb extends storage_main {
             this.client = await MongoClient.connect(this.storage.url, {maxPoolSize: 100, useNewUrlParser: true});
             console.timeEnd("initMongo1");
 
-
             console.time("initMongo2");
             this.db = this.client.db(this.storage.database);
             mongod = this.db;
@@ -66,7 +65,7 @@ class storage_mongodb extends storage_main {
         return packet;
     }
 
-    async read(schema, filter, filterrulesMethod) {
+    async read(schema, filter, filterrulesMethod, packet) {
         await super.read(schema, filter, filterrulesMethod);
         // const collection = schema.$id;
 
@@ -83,12 +82,18 @@ class storage_mongodb extends storage_main {
             }
         }
 
+        let options = {};
+
+        if (packet.$$header.sort) {
+            options.sort = packet.$$header.sort
+        }
+
         console.time("mongoFind");
         let result;
         if (this.storage.aggregate) {
             result = await this.db.collection(this.storage.collection || schema.$id).aggregate(this.storage.aggregate.pipeline).toArray();
         } else {
-            result = await this.db.collection(schema.$id).find(filter).toArray();
+            result = await this.db.collection(schema.$id).find(filter, options).skip(parseInt(packet.$$header.skip||0)).limit(parseInt(packet.$$header.limit||0)).toArray();
             result.map((item, index) => {
                 item.$$objid = item._id.toHexString();
                 delete item._id;
@@ -100,6 +105,9 @@ class storage_mongodb extends storage_main {
         console.time("mongoMap");
 
         console.timeEnd("mongoMap");
+
+        if(filterrulesMethod)
+            result = result.filter(filterrulesMethod);
 
         return result;
     }

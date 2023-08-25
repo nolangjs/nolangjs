@@ -87,8 +87,25 @@ function getAppConf(appName) {
     // logger.info("$$ finding app root ", global.appPath);
 
     //appConf load configuration
-    const appConf = require(path.join(global.appPath, appName));
-    return appConf;
+    if(fs.existsSync(path.join(global.appPath, appName))) {
+        return require(path.join(global.appPath, appName));
+    } else {
+        return {
+            schemas: global.appPath,
+            endpoints: [
+                {
+                    type: 'http',
+                    port: 1919,
+                    routes: [
+                        {
+                            path: '/',
+                            method: 'post'
+                        }
+                    ]
+                }
+                ]
+        }
+    }
 }
 
 class nlCompiler {
@@ -310,9 +327,9 @@ class nlCompiler {
 
 
         //cache
-        if(appConf.redis) {
+        if(appConf.cache?.redis) {
             const nl_cache = require('./nl_cache');
-            this._nl_cache = new nl_cache(appConf.redis, () => {
+            this._nl_cache = new nl_cache(appConf.cache?.redis, () => {
                 logger.log('Redis client connected');
                 // _nlCompiler.nlCompile();
             }, () => {
@@ -1090,10 +1107,10 @@ class nlCompiler {
 
         // schema = this.handlePacket(schema, schema);
         let _env = {...env};
-        schema = this.preparePacket(schema, {_env, schema: schema});
+        schema = this.preparePacket(schema, {..._env, schema: schema});
 
         //prepare packet
-        req_packet = this.preparePacket(req_packet, {_env, data: req_packet, schema: schema});
+        req_packet = this.preparePacket(req_packet, {..._env, data: req_packet, schema: schema});
 
 
         let action = header?.action;
@@ -1508,7 +1525,7 @@ class nlCompiler {
             //get storage from storage factory
             const storage_factory = require('./storage_adapters/storage_factory');
             let adapter = this.adapters[packet.$$schema];
-            if(!adapter) {
+            if(!adapter || this.conf.schemas?.watch) {
                 adapter = await storage_factory.call(this, storage);
                 if(!adapter) {
                     logger.error('could not detect adapter for storage', storage);

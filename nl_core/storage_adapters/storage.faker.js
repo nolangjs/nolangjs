@@ -5,6 +5,7 @@
 const mocker = require('mocker-data-generator').default;
 const logger = global.logger;
 const storage_main = require('./storage.main');
+const orderBy = require('./orderby.utils');
 
 class storage_faker extends storage_main{
     constructor (storage, ssConf){
@@ -17,7 +18,7 @@ class storage_faker extends storage_main{
         logger.log("create a "+ schema.$id)
     }
 
-    async read(schema, filter, filterrulesMethod){
+    async read(schema, filter, filterrulesMethod, packet){
         logger.log("read from "+ schema.$id);
         //return jsf(schema);
         let schm = {};
@@ -27,15 +28,43 @@ class storage_faker extends storage_main{
             }
         }
 
+        let thes = this;
+
         return mocker()
-            .schema('ress', schm, this.storage.count)
-            .build(function(error, data) {
+            .schema('data', schm, packet.$$header.limit || this.storage.count || 10)
+            .build(function(error, data1) {
                 if (error) {
                     throw error
                 }
                 //var util = require('util');
                 //logger.log(util.inspect(data, { depth: 10 }))
-                return (data.ress)
+                let data = data1.data;
+
+                if(filter) {
+                    data = data.filter(_dataObject => {
+                        for (let condition in filter) {
+                            if (_dataObject[condition] !== filter[condition]) return false;
+                        }
+                        return true;
+                    });
+                }
+
+                if(filterrulesMethod)
+                    data = data.filter(filterrulesMethod);
+
+                if (packet.$$header.skip) {
+                    data = data.splice(packet.$$header.skip);
+                }
+
+                if (thes.storage.count && packet.$$header.limit) {
+                    data = data.slice(0, packet.$$header.limit);
+                }
+
+                if (packet.$$header.sort) {
+                    data = data.sort(orderBy(packet.$$header.sort))
+                }
+
+                return data;
             })
     }
 

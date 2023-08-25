@@ -32,7 +32,9 @@ class storage_postgresql extends storage_main {
         this.connection = new Client(config);
         this.connection.connect((err) => {
             if (err) {
-                logger.error('connection error postgresql', err.stack)
+                logger.error('connection error postgresql')
+                logger.error(err.message)
+                logger.error(err.stack)
             } else {
                 logger.trace("inited postgresql");
             }
@@ -52,7 +54,7 @@ class storage_postgresql extends storage_main {
          });*/
 
         let result = await this.connection.query(sql);
-        logger.log(result)
+        // logger.log(result)
         this.connection.end();
         return result;
     }
@@ -89,15 +91,15 @@ class storage_postgresql extends storage_main {
 
     async read(schema, filter, filterrulesMethod, packet) {
         // super.read(schema, filter, filterrulesMethod);
-        return await this.readX(schema, packet, filter, false);
+        return await this.readX(schema, packet, filter, filterrulesMethod,false);
     }
 
     async count(schema, filter, filterrulesMethod, packet) {
         // super.count(schema, filter, filterrulesMethod);
-        return await this.readX(schema, packet, filter, true);
+        return await this.readX(schema, packet, filter, filterrulesMethod,true);
     }
 
-    async readX(schema, packet, filter, count) {
+    async readX(schema, packet, filter, filterrulesMethod, count) {
         let table = this.storage.table || schema.$id;
         let fields = [];
         /*if(schema.properties) {
@@ -153,7 +155,9 @@ class storage_postgresql extends storage_main {
             fields: fields,
             condition: filter,
             join: hasJoin ? join : undefined,
-            limit: packet.$$header.limit
+            limit: packet.$$header.limit,
+            offset: packet.$$header.skip,
+            sort: packet.$$header.sort
         });
 
         let sql = jsql.query.replace(/"/g, '');
@@ -186,6 +190,10 @@ class storage_postgresql extends storage_main {
         } else {
             logger.error(`ERROR: there is No id in storage "${table}"`);
         }
+
+        if(filterrulesMethod)
+            rows = rows.filter(filterrulesMethod);
+
         return rows;
     }
 

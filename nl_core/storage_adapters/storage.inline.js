@@ -2,10 +2,11 @@
 //logger
 const logger = global.logger;
 const storage_main = require('./storage.main');
+const orderBy = require('./orderby.utils');
 
-class storage_json extends storage_main {
+class storage_inline extends storage_main {
     constructor (storage, ssConf){
-        super('json');
+        super('inline');
         this.storage = storage;
     }
 
@@ -13,17 +14,36 @@ class storage_json extends storage_main {
         logger.trace("create a "+ schema.$id)
     }
 
-    async read(schema, filter, filterrulesMethod){
+    async read(schema, filter, filterrulesMethod, packet){
         logger.log("read from "+ schema.$id);
-        if(!filter)
-            return this.storage.data;
-        else
-            return this.storage.data.filter(d=>{
-                for(let k in filter) {
-                   if(d[k] !== filter[k]) return false;
+        let data = this.storage.data;
+        if(filter) {
+            data = data.filter(_dataObject => {
+                for (let condition in filter) {
+                    if (_dataObject[condition] !== filter[condition]) return false;
                 }
                 return true;
-            })
+            });
+        }
+
+        if(filterrulesMethod)
+            data = data.filter(filterrulesMethod);
+
+
+
+        if (packet.$$header.skip) {
+            data = data.splice(packet.$$header.skip);
+        }
+
+        if (packet.$$header.limit) {
+            data = data.slice(0, packet.$$header.limit);
+        }
+
+        if (packet.$$header.sort) {
+            data = data.sort(orderBy(packet.$$header.sort))
+        }
+
+        return data;
     }
 
     async count(schema, filter, filterrulesMethod) {
@@ -50,4 +70,4 @@ class storage_json extends storage_main {
 
 }
 
-module.exports = storage_json;
+module.exports = storage_inline;
