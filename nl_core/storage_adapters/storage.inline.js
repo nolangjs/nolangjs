@@ -2,7 +2,7 @@
 //logger
 const logger = global.logger;
 const storage_main = require('./storage.main');
-const orderBy = require('./orderby.utils');
+const orderBy = require('../tools/orderby.utils');
 
 class storage_inline extends storage_main {
     constructor (storage, ssConf){

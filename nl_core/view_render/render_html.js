@@ -409,9 +409,9 @@ async function pushObject(schema, packet, destination_id, view, key1, parentKey1
                     }
                 }
 
-                /*if(view.template.absolute){
-                 return parentCell;
-                 }*/
+                if (view.template.absolute) {
+                    return parentCell;
+                }
             }
 
             let pi = 0;
@@ -593,9 +593,9 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
                 setCells(innerCell, vi, tempCells);
             }
 
-            /*if(pview.template.absolute){
-             return parentCell;
-             }*/
+            if (pview.template.absolute) {
+                return parentCell;
+            }
         }
 
         if (propData && (propSchema.$$rel)) {
@@ -679,9 +679,9 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
                 setCells(innerCell, vi, tempCells);
             }
 
-            /*if(pview.template.absolute){
-             return parentCell;
-             }*/
+            /*if (pview.template.absolute) {
+                return parentCell;
+            }*/
         } else if (parentView && parentView.template && parentView.template.itemsTemplate) {
             var tempCells = parentView.template.itemsTemplate;
 
@@ -859,11 +859,11 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
                 }
             }
 
-            /*if(view.template.absolute){
-             return parentCell;
-             }*/
+            /*if (pview.template.absolute) {
+                return parentCell;
+            }*/
         } else if (parentView && parentView.template && parentView.template.itemsTemplate) {
-            var tempCells = parentView.template.itemsTemplate;
+            let tempCells = parentView.template.itemsTemplate;
 
             if (tempCells.listContainerTemplate) {
                 tempCells = tempCells.listContainerTemplate;

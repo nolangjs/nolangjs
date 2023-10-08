@@ -1,7 +1,8 @@
 const schema_loader = require('./schema_loader');
-const glob = require('glob'), path = require('path');
+const glob = require('glob'), path = require('path'), fs = require('fs');
 const chokidar = require('chokidar');
 const logger = global.logger;
+const yaml = require('yaml');
 
 module.exports = class file_schema_loader extends schema_loader{
 
@@ -9,9 +10,9 @@ module.exports = class file_schema_loader extends schema_loader{
         logger.log('load schema files ');
         let schemaFiles;
         if(!path.isAbsolute(this.conf.path))
-            schemaFiles = path.join(global.appPath , this.conf.path , '/*.{json,json5,js}');
+            schemaFiles = path.join(global.appPath , this.conf.path , '/*.{json,json5,js,yaml,yml}');
         else
-            schemaFiles = this.conf.path;
+            schemaFiles = path.join(this.conf.path, '/*.{json,json5,js,yaml,yml}');
 
         schemaFiles = schemaFiles.replace(/\\/g,'/');
 
@@ -19,7 +20,13 @@ module.exports = class file_schema_loader extends schema_loader{
         glob.sync(schemaFiles).forEach(function (fileName) {
             try {
                 delete require.cache[path.resolve(fileName)];
-                let schema = require(path.resolve(fileName));
+                let schema ;
+                //yaml
+                if(['.yaml','.yml'].indexOf(path.extname(fileName))>-1){
+                    schema = yaml.parse(fs.readFileSync(fileName, 'utf8'));
+                } else {
+                    schema = require(path.resolve(fileName))
+                }
                 schema.filepath = fileName;
                 //trigger onLoad
                 thes.onLoad(schema, fileName, false);

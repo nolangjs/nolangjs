@@ -312,14 +312,14 @@
                 ]
             }
         },
-        "authenticate": {
-            "description": "If this app needs to authenticate",
-            "type": "boolean"
-        },
         "user": {
             "description": "user information for this app",
             "type": "object",
             "properties": {
+                "authenticate": {
+                    "description": "If this app needs to authenticate",
+                    "type": "boolean"
+                },
                 "schema": {
                     "description": "the $Id of the schema users information is stored",
                     "type": "string"
@@ -335,6 +335,26 @@
                 "rolesField": {
                     "description": "name of field indicating roles assigned to user",
                     "type": "string"
+                },
+                "jwt": {
+                    "description": "jsonwebtoken",
+                    "type": "object",
+                    "properties": {
+                        "secret": {
+                            "type": "string"
+                        },
+                        "expiresIn": {
+                            "type": "string",
+                            "description": "time for expire token like 10h",
+                            "default": "24h"
+                        }
+                    },
+                    "required": ["secret"]
+                },
+                "directRoles": {
+                    "description": "allow set roles directly in script?",
+                    "type": "boolean",
+                    "default": false
                 }
             }
         },

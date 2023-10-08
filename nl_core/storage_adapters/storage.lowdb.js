@@ -6,7 +6,7 @@ const FileSync = require('lowdb/adapters/FileSync');
 const Memory = require('lowdb/adapters/Memory');
 const storage_main = require('./storage.main');
 const logger = global.logger;
-const orderBy = require('./orderby.utils');
+const orderBy = require('../tools/orderby.utils');
 
 class storage_lowdb extends storage_main {
 

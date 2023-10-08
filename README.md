@@ -70,7 +70,7 @@ Creating application with Nolang is very easy.
 ## Application config file
 To create a NoLang application, we need to have NodeJS installed.
 then in a directory for application there is the config file. 
-Config file must be in JSON or JSON5 format and can have any name, its default name is <b>app.nolang.json</b>
+Config file must be in JSON or JSON5 format and can have any name, its default name is <b>app.json</b> or <b>app.json5</b>
 
 ```json
 {
@@ -111,7 +111,7 @@ After installing nolangjs package, Nolang cli can be used to run a Nolang applic
 npm i nolangjs -g
 ```
 ```
-nolang /path/to/dir app.nolang.json
+nolang /path/to/dir app.json
 ```
 
 # Documentation

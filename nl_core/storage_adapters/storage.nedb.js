@@ -82,7 +82,7 @@ class storage_nedb extends storage_main {
 
     async count(schema, filter, filterrulesMethod, packet){
         logger.trace("count of "+ schema.$id, packet)
-        let result = await this.read(schema, filter, filterrulesMethod);
+        let result = await this.read(schema, filter, filterrulesMethod, packet);
         return {count: result.length}
     }
 

@@ -153,69 +153,141 @@
                     "description": "key of this rule",
                     "type": "string"
                 },
-                "ruleOf": {
-                    "description": "which items related to this rule, items are addresses of related INNER nodes ",
+                "schemas": {
+                    "description": "which schemas are related to this rule, items are addresses of related INNER nodes ",
                     "type": "array",
                     "items": {
                         "type": "string"
                     }
                 },
-                "ruleTitle": {
+                "title": {
                     "description": "title of rule for advisor",
                     "type": "string"
                 },
-                "ruleDescription": {
-                    "description": "description of rule for advisor",
+                "description": {
+                    "description": "on [action] [error] [if] do ",
                     "type": "string"
                 },
-                "ruleDef": {
-                    "description": "definition of rule",
-                    "type": ["object", "array"]
-                },
-                "ruleType": {
-                    "enum": [
-                        "check",
-                        "trigger",
-                        "filter",
-                        "permission",
-                        "set",
-                        "emit"
-                    ],
-                    "description": "type of rule",
-                    "type": "string"
-                },
-                "ruleTime": {
-                    "description": "Time for run or evaluate this rule, for ruleType 'set' and 'trigger'",
-                    "type": "string",
-                    "enum": [
-                        "beforeCreate",
-                        "afterCreate",
-                        "beforeUpdate",
-                        "afterUpdate",
-                        "beforeDelete",
-                        "afterDelete",
-                        "onSearch",
-                        "onRead",
-                        "onWiew",
-                        "onLoad",
-                        "onStorageConnected",
-                        "every"
+
+                "before": {
+                    "anyOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "$ref": "ssActions"
+                            }
+                        },
+                        {
+                            "$ref": "ssActions"
+                        }
                     ]
+                },
+                "after": {
+                    "anyOf": [
+                        {
+                            "type": "array",
+                            "items": {
+                                "$ref": "ssActions"
+                            }
+                        },
+                        {
+                            "$ref": "ssActions"
+                        }
+                    ]
+                },
+                "condition": {
+                    "type": "object",
+                    "description": "jsonlogic or object of condition"
+                },
+                "schedule": {
+                    "type": "string",
+                    "description": "cron like expression"
+                },
+                "timezone": {
+                    "type": "string",
+                    "description": "timezone for schedule"
+                },
+                "error": {
+                    "type": ["string", "array"],
+                    "description": "error code(s)"
+                },
+
+                "check": {
+                    "type": "object",
+                    "description": "jsonlogic or object of condition"
+                },
+                "set": {
+                    "type": "object",
+                    "description": "object to be set"
+                },
+                "script": {
+                    "type": "object",
+                    "description": "a nolang script to run"
                 },
                 "async": {
                     "description": "run async this rule",
                     "type": "boolean"
                 },
-                "schedule": {
-                    "type": "string"
-                },
-                "timezone": {
-                    "type": "string"
+                "message": {
+                    "type": "string",
+                    "description": "message if check failed"
                 }
             },
-            "required": [
-                "ruleId",
-                "ruleDef"
+            "examples": [
+                {
+                    "before": "C",
+                    "check": {
+                        "if": [
+                            {
+                                "<": [{"var": "Age"}, 18 ]
+                            },
+                            {
+                                "!==": [ {"var": "Parent"}, null]
+                            }
+                        ]
+                    }
+                },
+                {
+                    "error": "ERR_1004",
+                    "script": {
+                        "$$schema": "schemaidx",
+                        "$$header": {
+                            "action": "U",
+                            "filter": {
+                                "_id": "{{data.$$objid}}"
+                            },
+                            "fieldx": "valuex"
+                        }
+                    }
+                },
+                {
+                    "before": "C",
+                    "set": {
+                        "index": "{{new.index - 1}}",
+                        "fullname": {
+                            "+": [{"var":"new.firstname"}, {"var":"new.lastname"}]
+                        }
+                    }
+                },
+                {
+                    "when": {
+                        "before": "C"
+                    },
+                    "then": {
+                        "set": {
+                            "index": "{{new.index - 1}}",
+                            "fullname": {
+                                "+": [{"var":"new.firstname"}, {"var":"new.lastname"}]
+                            }
+                        }
+                    }
+                }
+            ],
+            "anyOf": [
+                {"required": ["check"]},
+                {"required": ["filter"]},
+                {"required": ["set"]},
+                {"required": ["script"]}
             ]
         },
         "ssRole": {
@@ -259,6 +331,10 @@
                             "access"
                         ]
                     }
+                },
+                "filter": {
+                    "type": "object",
+                    "description": "an object or jsonLogic to filter data list after retrieve data"
                 },
                 "$$rules": {
                     "description": "rules of this role",
@@ -1248,7 +1324,7 @@
         "$$rules": {
             "type": "array",
             "items": {
-                "$ref": "#/definitions/ssRule"
+                "$ref": "ssRule"
             },
             "minItems": 0,
             "uniqueItems": true
