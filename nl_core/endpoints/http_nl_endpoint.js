@@ -2,7 +2,8 @@ const nl_endpoint = require('./nl_endpoint');
 const express = require('express');
 const fileUpload = require("express-fileupload");
 const bodyParser = require('body-parser');
-const express_ws = require('express-ws');
+// const express_ws = require('express-ws');
+const WebSocketServer = require('ws');
 
 const path = require('path');
 const fs = require('fs');
@@ -91,6 +92,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
         }
 
         //routes handlers
+        if(this.conf.routes && this.conf.routes.length > 0)
         for(let route of this.conf.routes) {
             const method = route.method.toLowerCase();
             let _cors = (req, res, next)=>next();
@@ -101,8 +103,9 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
                 _cors = cors(route.cors);
             }
 
-            if(method === 'ws') {
-                const expressWs = express_ws(app);
+            if(method === 'ws') {} else
+                /*const expressWs = express_ws(app);
+
                 //listen to every web socket connection
                 app[method].bind(app)(route.path, _cors , (ws, req) => {
                     //listener method if msg has listen //todo describe concept "listeners"
@@ -123,7 +126,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
                         listener.handler = null;
                     });
                 })
-            }
+            }*/
             //create a handler method bounded to "app" with path "route.path"
             //which runs nl_endpoint_method , by command "route.return" or "req.body"
             app[method].bind(app)(route.path, _cors , (req, res)=>{
@@ -207,9 +210,69 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
         }
 
         let doListen = ()=>{
-            app.listen(port, () => {
-                logger.log(`############     Nolang HTTP listening on port ${port}    ############`)
-            })
+            let httpServer;
+            if(this.conf.https && this.conf.https.enabled) {
+                const https = require('https');
+                const privateKey = fs.readFileSync(this.conf.https.privateKey, 'utf8');
+                const certificate = fs.readFileSync(this.conf.https.certificate, 'utf8');
+                const ca = this.conf.https.ca ? fs.readFileSync(this.conf.https.ca, 'utf8') : null;
+                const credentials = {
+                    key: privateKey,
+                    cert: certificate,
+                    ca: ca
+                };
+                httpServer = https.createServer(credentials, app);
+                httpServer.listen(this.conf.https.port || 443, () => {
+                    logger.log('######    Nolang HTTPS Server running on port '+(this.conf.https.port || 443) + '    ######');
+                });
+            } else {
+                httpServer = app.listen(port, () => {
+                    logger.log(`############     Nolang HTTP listening on port ${port}    ############`)
+                })
+            }
+
+
+            const wss = new WebSocketServer.Server({server: httpServer });
+            
+            wss.on("connection", ws => {
+                //Execute on connection
+
+                let listener = {
+                    handler: (response) => {
+                        ws.send(JSON.stringify(response));
+                    }
+                }
+
+
+                //Execute when recieving data
+                ws.on("message", raw_data => {
+                    logger.log(`Received: ${raw_data}`);
+
+                    //Parse the data, execute the event.
+                    try {
+                        let data = JSON.parse(raw_data)
+                        // let event = new Event(data.type, socket, data)
+                        // event.Execute();
+
+                        thes.nl_endpoint_method(data, listener, {}).then(response=>{
+                            ws.send(JSON.stringify(response));
+                        })
+                    } catch (err) {
+                        logger.error(err);
+                        ws.send(JSON.stringify({success: false, type: err.type, error: err.message}))
+                    }
+                })
+
+                //Execute on disconnect
+                ws.on("close", () => {
+                    logger.log('socket disconnected!')
+                })
+
+                //Execute on error
+                ws.onerror = error =>{
+                    logger.log("Client Error: ${error}");
+                }
+            });
         }
 
         if(this.conf?.watch) {

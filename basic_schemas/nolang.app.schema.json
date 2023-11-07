@@ -304,6 +304,28 @@
                             "helmet": {
                                 "description": "Helmet helps you secure your Express apps by setting various HTTP headers. see https://helmetjs.github.io",
                                 "type": "object"
+                            },
+                            "https": {
+                                "type": "object",
+                                "properties": {
+                                    "enabled": {
+                                        "type": "boolean",
+                                        "default": false
+                                    },
+                                    "port": {
+                                        "type": "number",
+                                        "default": 443
+                                    },
+                                    "privateKey": {
+                                        "type": "string"
+                                    },
+                                    "certificate": {
+                                        "type": "string"
+                                    },
+                                    "ca": {
+                                        "type": "string"
+                                    }
+                                }
                             }
                         },
                         "additionalProperties": false,

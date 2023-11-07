@@ -4,7 +4,8 @@ const storage_main = require('./storage.main');
 const jsonSql = require('json-sql')({
     separatedValues: false,
     dialect: 'postgresql',
-    wrappedIdentifiers: false
+    // wrappedIdentifiers: true,
+
 });
 require('make-promises-safe');
 const logger = global.logger;
@@ -160,7 +161,7 @@ class storage_postgresql extends storage_main {
             sort: packet.$$header.sort
         });
 
-        let sql = jsql.query.replace(/"/g, '');
+        let sql = jsql.query;//.replace(/"/g, '');
         let values = jsql.values;
         for (let p in values) {
             sql = sql.replace('$' + p, "'" + values[p] + "'");

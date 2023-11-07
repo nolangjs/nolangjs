@@ -3,6 +3,8 @@
 // var winston = require('winston');
 // const jsf = require('json-schema-faker'); // json-schema faker
 const mocker = require('mocker-data-generator').default;
+// const faker = require('faker');
+// faker.local = 'fa'
 const logger = global.logger;
 const storage_main = require('./storage.main');
 const orderBy = require('../tools/orderby.utils');
@@ -30,7 +32,7 @@ class storage_faker extends storage_main{
 
         let thes = this;
 
-        return mocker()
+        return mocker()//.addGenerator('faker', faker)
             .schema('data', schm, packet.$$header.limit || this.storage.count || 10)
             .build(function(error, data1) {
                 if (error) {
