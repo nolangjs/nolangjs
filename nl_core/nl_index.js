@@ -916,9 +916,14 @@ class nlCompiler {
             }
 
             //todo move to engine factory
-            if(view?.engine === 'html') {
-                 let render_html = require('./view_render/render_html');
-                 return await render_html(schema, view, data2 || data || req_packet, _ssCompiler, env)
+            if(view) {
+                if(view.engine === 'html') {
+                    let render_html = require('./view_render/render_html');
+                    return await render_html(schema, view, data2 || data || req_packet, _ssCompiler, env)
+                } else if(view.engine === 'file' && view.render) {
+                    let render_file = require(path.join(global.appPath, view.render));
+                    return await render_file(schema, view, data2 || data || req_packet, _ssCompiler, env)
+                }
             }
 
             if(view?.meta)

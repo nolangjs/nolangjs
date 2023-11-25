@@ -157,6 +157,8 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
                         headers: req.headers
                     }
                 }
+                const ST = require('stjs');
+                command = ST.select(_req).transformWith(command).root();
                 //check is listener for SSE
                 if(command?.$$header?.listen) {
                     res.set({
@@ -233,7 +235,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
 
 
             const wss = new WebSocketServer.Server({server: httpServer });
-            
+
             wss.on("connection", ws => {
                 //Execute on connection
 
@@ -270,7 +272,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
 
                 //Execute on error
                 ws.onerror = error =>{
-                    logger.log("Client Error: ${error}");
+                    logger.log(`Client Error: ${error}`);
                 }
             });
         }

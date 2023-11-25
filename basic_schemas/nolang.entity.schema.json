@@ -525,7 +525,7 @@
                     ]
                 },
                 "render": {
-                    "description": "uri or id of renderer schema",
+                    "description": "id or path of renderer",
                     "type": "string"
                 },
                 "template": {
@@ -565,6 +565,10 @@
                             "type": "object"
                         },
                         "objectTemplate": {
+                            "$ref": "#/properties/template",
+                            "type": "object"
+                        },
+                        "itemsTemplate": {
                             "$ref": "#/properties/template",
                             "type": "object"
                         },
@@ -622,6 +626,11 @@
                     "type": "boolean",
                     "default": false,
                     "description": "if true not embed fields their data is null"
+                },
+                "hideTitles": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Dont draw titles"
                 },
                 "disabled": {
                     "type": "boolean",
