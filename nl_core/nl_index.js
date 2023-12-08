@@ -680,7 +680,7 @@ class nlCompiler {
                                     schema: itsSchema,
                                     packet: req_packet,
                                     params: header.params,
-                                    endpoint: thes.runPacket
+                                    endpoint: (req_packet, listener, env)=>thes.runPacket(req_packet, listener, env),
                                 };
                                 return await methodJs.call(thisObj)
                             } catch (e){
@@ -1453,6 +1453,9 @@ class nlCompiler {
 
             if(schema.$$storage){
                 Object.assign(storage, schema.$$storage);
+                if(schema.$$storage.adapter === 'default') {
+                    storage.adapter = this.conf.storage.adapter;
+                }
             } else {
                 logger.error("storage is not set for " + packet.$$schema + ", default storage is set for it");
                 //TODO change .error to .warning
@@ -1484,7 +1487,7 @@ class nlCompiler {
 
                 console.time("checkpermission");
                 let checkResult = await this.checkRolesPermission(schema.$$roles, packet);
-                if(!checkResult.success) {
+                if(!checkResult.hasPermission) {
                     //return this.ajv.errors;
                     /*if(!this.currentUser){
                         // this.runRuleOf(schema, 'error')
@@ -1940,6 +1943,7 @@ class nlCompiler {
                 try{
                     let decoded = jwt.verify(header.user.token, this.conf.user.jwt?.secret);
                     userRoles = decoded.roles;
+                    //todo , token table instead of roles in jwt token
                 } catch (err) {
                     ret.error = err;
                     return ret;
@@ -2034,7 +2038,7 @@ class nlCompiler {
                     }
                 }
             }
-            ret.success = true;
+            ret.hasPermission = true;
             return ret;
         }
 

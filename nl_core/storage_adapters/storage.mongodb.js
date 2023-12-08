@@ -171,11 +171,6 @@ class storage_mongodb extends storage_main {
             }
         }
 
-        if (!filter || filter === {}) {
-            logger.error('preventing from delete without any filter')
-            return {success: false, message: 'preventing from delete without any filter'}
-        }
-
         const result = await MyCollection.deleteMany(filter);
         return {
             message: result.deletedCount + " object DELETED FROM " + collection
