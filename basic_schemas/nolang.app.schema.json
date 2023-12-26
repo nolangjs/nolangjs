@@ -295,6 +295,10 @@
                                         },
                                         "middleware": {
                                             "description": "TODO"
+                                        },
+                                        "bodyParser": {
+                                            "type": ["string","object"],
+                                            "description": "which body Parser method must be used in this route, json is default, \"json\",\"text\",\"raw\",\"urlencoded\""
                                         }
                                     },
                                     "additionalProperties": false,
@@ -369,6 +373,51 @@
                             "type": "string",
                             "description": "time for expire token like 10h",
                             "default": "24h"
+                        },
+                        "cookie": {
+                            "type": "object",
+                            "description": "if exists save token in cookie",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "description": "name of cookie, default jwt",
+                                    "default": "jwt"
+                                },
+                                "options": {
+                                    "type": "object",
+                                    "properties": {
+                                        "SameSite": {
+                                            "type": "string",
+                                            "default": "Strict"
+                                        },
+                                        "path": {
+                                            "type": "string",
+                                            "default": "/",
+                                            "description": "This is the path where cookie will be stored. Default is '/'"
+                                        },
+                                        "expires": {
+                                            "type": "string",
+                                            "description": "This parameter defines the expiry time of the cookie in GMT format. Default value is 0, that creates a session cookie"
+                                        },
+                                        "maxAge": {
+                                            "type": "number",
+                                            "description": "This parameter represents a convenient option for setting the expiry time relative to the current time in milliseconds"
+                                        },
+                                        "httpOnly": {
+                                            "type": "boolean",
+                                            "description": "if true The cookie only accessible by the web server"
+                                        },
+                                        "signed": {
+                                            "type": "boolean",
+                                            "description": "Indicates if the cookie should be signed"
+                                        },
+                                        "secure": {
+                                            "type": "boolean",
+                                            "description": "This marks the cookie to be used only with https"
+                                        }
+                                    }
+                                }
+                            }
                         }
                     },
                     "required": ["secret"]

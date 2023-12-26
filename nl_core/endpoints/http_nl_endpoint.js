@@ -1,9 +1,9 @@
 const nl_endpoint = require('./nl_endpoint');
 const express = require('express');
-const fileUpload = require("express-fileupload");
 const bodyParser = require('body-parser');
 // const express_ws = require('express-ws');
 const WebSocketServer = require('ws');
+const cookieParser = require('cookie-parser');
 
 const path = require('path');
 const fs = require('fs');
@@ -18,7 +18,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
 
     async start() {
         const app = express();
-        app.use(bodyParser.json());
+        app.use(cookieParser());
 
         const port = this.conf.port;
 
@@ -76,6 +76,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
         //file upload for all
         let uploadRoot = '';
         if(this.conf.upload) {
+            const fileUpload = require("express-fileupload");
             app.use(fileUpload());
             uploadRoot = this.conf.upload.root;
             if(!path.isAbsolute(uploadRoot)) {
@@ -101,6 +102,18 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
             if(route.cors){
                 const cors = require('cors');
                 _cors = cors(route.cors);
+            }
+
+            // app.use(bodyParser.json());
+            let bp = 'json';
+            let opt = {};
+            if(route.bodyParser) {
+                if(typeof route.bodyParser === 'string')
+                    bp = route.bodyParser;
+                else {
+                    bp = route.bodyParser.method;
+                    opt = route.bodyParser.opt || {};
+                }
             }
 
             if(method === 'ws') {} else
@@ -129,22 +142,26 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
             }*/
             //create a handler method bounded to "app" with path "route.path"
             //which runs nl_endpoint_method , by command "route.return" or "req.body"
-            app[method].bind(app)(route.path, _cors , (req, res)=>{
+            app[method].bind(app)(route.path, [_cors, bodyParser[bp](opt)] , (req, res)=>{
                 let command = route.return || req.body;
-                if(req.files && req.body.command){
+                if(req.files && req.body.command) {
                     command = JSON.parse(req.body.command);
                     for (let fileKey of Object.keys(req.files) ) {
                         let file = req.files[fileKey];
-                        if(this.conf.upload.maxSize){
+                        if (this.conf.upload.maxSize) {
                             if(this.conf.upload.maxSize<file.size){
                                 res.status(500).json({success: false, message: 'big file'});
                                 return;
                             }
                         }
+                        let fileExt = path.extname(file.name);
+                        if(!fileExt || fileExt === '') {
+                            fileExt = '.' + require('mime').extension(file.mimetype);
+                        }
                         command[fileKey] = {
                             fileName: file.name,
                             size: file.size,
-                            ext: path.extname(file.name)
+                            ext: fileExt
                         }
                     }
                 }
@@ -152,9 +169,12 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
                 let _req = {
                     request: {
                         params: req.params,
+                        body: req.body,
                         query: req.query,
                         url: req.url,
-                        headers: req.headers
+                        headers: req.headers,
+                        cookies: req.cookies,
+                        signedCookies: req.signedCookies
                     }
                 }
                 const ST = require('stjs');
@@ -191,22 +211,43 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
 
                     //check upload files
                     if(req.files){
-                        for (let fileKey of Object.keys(req.files) ){
-                            let file = req.files[fileKey];
-                            let fileExt = path.extname(file.name);
-                            let filePath = path.join(uploadRoot, command.$$schema, response.$$objid);
-                            fs.mkdirSync(filePath);
-                            file.mv(filePath+'/'+fileKey+fileExt, (err)=>{
-                                // if (err)
-                                    // return res.status(500).send(err);
-                                ;
-                            })
+                        try {
+                            for (let fileKey of Object.keys(req.files) ) {
+                                let file = req.files[fileKey];
+                                let fileExt = path.extname(file.name);
+                                if(!fileExt || fileExt === '') {
+                                    fileExt = '.' + require('mime').extension(file.mimetype);
+                                }
+                                try {
+                                    let filePath = path.join(uploadRoot, command.$$schema, response?.$$objid);
+                                    if(!fs.existsSync(filePath))
+                                        fs.mkdirSync(filePath);
+                                    file.mv(filePath+'/'+fileKey+fileExt, (err)=>{
+                                        // if (err)
+                                        // return res.status(500).send(err);
+                                        ;
+                                    })
+                                } catch (e) {
+                                    logger.error('file could not be saved!')
+                                }
+                            }
+                        } catch (e) {
+                            logger.error(e)
+                        }
+
+                    }
+
+                    //cookies
+                    if(route.type === 'json') {//todo, how to set cookies for non json types
+                        if(response.cookie) {
+                            for(let [name,value] of Object.entries(response.cookie.vals)) {
+                                res.cookie(name, value, response.cookie.options );
+                            }
                         }
                     }
 
                     res.type(route.type || 'json');
                     res.send(response);
-                    // res.json(response)
                 })
             })
         }

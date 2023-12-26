@@ -4,7 +4,7 @@ const storage_main = require('./storage.main');
 const jsonSql = require('json-sql')({
     separatedValues: false,
     dialect: 'postgresql',
-    // wrappedIdentifiers: true,
+    wrappedIdentifiers: true,
 
 });
 require('make-promises-safe');
@@ -79,8 +79,9 @@ class storage_postgresql extends storage_main {
             let result = await this.query(sql.query);
 
             return {
+                success: true,
                 message: "ADDED " + result?.rowCount + " " + table,
-                newId: result?.rowCount,
+                newId: result[this.storage.id || 'id']
             };
         } catch (e) {
             logger.error(e)
@@ -130,6 +131,7 @@ class storage_postgresql extends storage_main {
             } else {
                 selField = table + '.' + f;
             }
+
             fields.push(selField);
         }
 
@@ -147,7 +149,12 @@ class storage_postgresql extends storage_main {
         }
 
         if(count){
-            fields = ['count(*)']
+            fields = [{
+                func: {
+                    name: 'count',
+                    args: [{field: '*'}]
+                }
+            }]
         }
 
         let jsql = jsonSql.build({
@@ -160,6 +167,8 @@ class storage_postgresql extends storage_main {
             offset: packet.$$header.skip,
             sort: packet.$$header.sort
         });
+
+
 
         let sql = jsql.query;//.replace(/"/g, '');
         let values = jsql.values;
@@ -234,12 +243,12 @@ class storage_postgresql extends storage_main {
             condition: filter
         });
 
-        sql = sql.query.replace(/"/g, '');
+        sql = sql.query;//.replace(/"/g, '');
 
         let result = await this.query(sql);
 
 
-        return result.deletedCount + " object DELETED FROM "+collection;
+        return { success: true, message: result.deletedCount + " object DELETED FROM "+table};
     }
 
     async commit(obj) {
@@ -266,7 +275,7 @@ class storage_postgresql extends storage_main {
             condition: obj.filter
         });
 
-        sql = sql.query.replace(/"/g, '');
+        sql = sql.query;//.replace(/"/g, '');
 
         let result = await this.query(sql);
         logger.trace("committed" + result);

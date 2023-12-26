@@ -612,7 +612,7 @@ class nlCompiler {
 
     }
 
-    async callMethod(req_packet) {
+    async callMethod(req_packet, env) {
         let thes = this;
         try {
             /*if (req_packet.$$import) {
@@ -688,16 +688,19 @@ class nlCompiler {
                             }
                         } else if(method.handler){
                             let lastReturn = null;
-                            method.handler.map(async function (iPacket) {
+                            //method.handler.map(async function (iPacket) {
+                            let pre = [];
+                            for(let iPacket of method.handler) {
                                 let deepcopy = {...iPacket};
 
                                 //assigning value parameters
                                 if(header.params) {
-                                    deepcopy = await thes.handlePacket(deepcopy, header.params);
+                                    deepcopy = await thes.handlePacket(deepcopy, {params: header.params, env: env, schema: itsSchema, pre: pre});
                                 }
 
-                                lastReturn = thes.runPacket(deepcopy);
-                            });
+                                lastReturn = await thes.runPacket(deepcopy);
+                                pre.push(lastReturn);
+                            };
 
                             return lastReturn;
                         } else {
@@ -714,6 +717,7 @@ class nlCompiler {
             }
 
         }catch (e){
+            logger.error(e)
         }
     }
 
@@ -867,6 +871,9 @@ class nlCompiler {
                             //fixme if no view exists in script then $$rel will not be handled
                             if(obj[field]) {
                                 let rel = schema.properties[field]?.$$rel;
+                                if(rel && !rel.hasOwnProperty('key')) {
+                                    rel.key = '$$objid';
+                                }
                                 if (rel && !rel.join) {
                                     if (rel.cache && this._nl_cache) {
                                         let cacheKey = 'lookups_' + rel.schema + '_' + rel.key;
@@ -878,7 +885,7 @@ class nlCompiler {
                                                 $$header: {
                                                     action: 'R',
                                                     filter: rel.cache.filter,
-                                                    fields: [rel.key, rel.return]
+                                                    fields: [rel.key].concat(rel.return)
                                                 }
                                             });
                                             for (let val of vals) {
@@ -894,12 +901,18 @@ class nlCompiler {
                                             $$header: {
                                                 action: 'R',
                                                 filter: {
-                                                    [rel.key]: obj[field],
-                                                    fields: [rel.key, rel.return]
-                                                }
+                                                    [rel.key]: obj[field]
+                                                },
+                                                fields: [rel.key].concat(rel.return)
                                             }
                                         });
-                                        obj[field] = val[0][rel.return]
+                                        if(Array.isArray(rel.return)) {
+                                            for(let r of rel.return) {
+                                                obj[field+'.'+r] = val[0][r];
+                                            }
+                                        } else {
+                                            obj[field+'.'+rel.key] = val[0][rel.return]
+                                        }
                                     }
                                 }
                             }
@@ -1107,7 +1120,7 @@ class nlCompiler {
         let data_message;
 
         if ('M'.indexOf(action) >= 0) {
-            data_message = await _ssCompiler.callMethod(req_packet);
+            data_message = await _ssCompiler.callMethod(req_packet, env);
             // header = req_packet.data.$$header;
             // action = header.action;
         }
@@ -1129,18 +1142,30 @@ class nlCompiler {
             //do dataPacket
             data_message = await _ssCompiler.dataPacket({...req_packet}, schema);
 
-            //todo, check success
-            if(header && header.then && data_message /*&& data_message.success*/) {
-                header.then = ST.select(data_message).transformWith(header.then).root();
+            let _then = () => (data_message && ((Array.isArray(data_message) && data_message.length>0) || (!Array.isArray(data_message) && typeof data_message ==='object' /*&& data_message.success*/)));
+            if(header && header.then && _then()) {
+                header.then = ST.select({ [req_packet.$$schema] : Array.isArray(data_message)?data_message[0]:data_message}).transformWith(header.then).root();
                 if (header.then.$$header) {
                     return _ssCompiler.runPacket(header.then, _env);
-                } else if(header.then.$$new) {
+                } else if(header.then.$$set) {
+                    for(let key in header.then.$$set) {
+                        data_message[key] = header.then.$$set[key];
+                    }
+                }
+            }
+
+            let _else = () => (!data_message || ((!Array.isArray(data_message) && typeof data_message ==='object' && !data_message.success) || (Array.isArray(data_message) && data_message.length<1)));
+            if(header?.else && _else()) {
+                header.else = ST.select({script: req_packet}).transformWith(header.else).root();
+                if (header.else.$$header) {
+                    return _ssCompiler.runPacket(header.else, _env);
+                }/* else if(header.else.$$new) {
                     if(!data_message.$$new)
                         data_message.$$new = {};
                     for(let key in header.then.$$new){
                         data_message.$$new[key] = header.then.$$new[key];
                     }
-                }
+                }*/
             }
         }
 
@@ -1159,15 +1184,15 @@ class nlCompiler {
         }*/
 
 
-        //check for push to listeners
-        if(this.listeners.hasOwnProperty(req_packet.$$schema)){
+        //check for push to listeners //todo except action R
+        if(data_message && action !== 'R' && this.listeners.hasOwnProperty(req_packet.$$schema)){
             for(let lis of this.listeners[req_packet.$$schema]){
                 //check header filter
                 let check = true;
                 if(lis.header?.filter){
 
                     for(let key in lis.header.filter) {
-                        if(Array.isArray(data_message)){
+                        if(Array.isArray(data_message)) {
                             data_message.map(doc=>{
                                 check = check && (doc[key] === lis.header.filter[key]);
                             })
@@ -1457,11 +1482,11 @@ class nlCompiler {
                     storage.adapter = this.conf.storage.adapter;
                 }
             } else {
-                logger.error("storage is not set for " + packet.$$schema + ", default storage is set for it");
+                logger.debug("storage is not set for " + packet.$$schema + ", default storage is set for it");
                 //TODO change .error to .warning
             }
 
-            if(storage === {}){//todo, check is this compare true way
+            if(storage === {}) {//todo, check is this compare true way
                 logger.error("storage is not set for " + packet.$$schema);
                 return { //TODO uniform return with message and code
                     "message": "storage is not set",
@@ -1486,7 +1511,7 @@ class nlCompiler {
             if(schema.$$roles && this.conf.user?.authenticate && !ignoreUser) {
 
                 console.time("checkpermission");
-                let checkResult = await this.checkRolesPermission(schema.$$roles, packet);
+                let checkResult = await this.checkRolesPermission(schema.$$roles, packet, env);
                 if(!checkResult.hasPermission) {
                     //return this.ajv.errors;
                     /*if(!this.currentUser){
@@ -1758,7 +1783,7 @@ class nlCompiler {
                     return {success: false, message: thes.ajv.errors};// JSON.stringify(this.ajv.errors) +"not Valid! update failed"
                 } else {
                     await adapter.commit(updateList);
-                    return { success: true, message: "update ok", updated: updateList.value().length};
+                    return { success: true, message: "update ok", updated: updateList.value().length, $$objid: updateList.value()[0]?.$$objid};
                 }
             }
             //delete
@@ -1912,7 +1937,7 @@ class nlCompiler {
         return true;
     }
 
-    async checkRolesPermission(roles, packet) {
+    async checkRolesPermission(roles, packet, env) {
         //TODO create permission routing logs
         //TODO return permission messages to user
 
@@ -1925,7 +1950,25 @@ class nlCompiler {
             success: false
         };
 
+        let user = null;
         let userRoles = null;
+
+        if(env?.request?.cookies) {
+            let token = null;
+            let jwtcookiename = this.conf.user.jwt?.cookie?.name || 'jwt';
+            if(env?.request?.cookies[jwtcookiename]) {
+                token = env.request.cookies[jwtcookiename];
+                try{
+                    let decoded = jwt.verify(token, this.conf.user.jwt?.secret);
+                    user = decoded.user;
+                    userRoles = decoded.roles;
+                    //todo , token table instead of roles in jwt token
+                } catch (err) {
+                    ret.error = err;
+                    return ret;
+                }
+            }
+        }
 
         if (header.user) {
             // this.currentUser = header.user;
@@ -1942,6 +1985,7 @@ class nlCompiler {
             if(header.user.token) {
                 try{
                     let decoded = jwt.verify(header.user.token, this.conf.user.jwt?.secret);
+                    user = decoded.user;
                     userRoles = decoded.roles;
                     //todo , token table instead of roles in jwt token
                 } catch (err) {
@@ -1961,7 +2005,7 @@ class nlCompiler {
                                 action: 'R',
                                 filter: {
                                     [this.conf.user.usernameField]: _username,
-                                    [this.conf.user.passwordField]: _password
+                                    // [this.conf.user.passwordField]: _password
                                 },
                                 cache: {
                                     key: new Buffer( _username+_password).toString('base64'), //fixme encrypt it
@@ -1969,15 +2013,43 @@ class nlCompiler {
                                 }
                             }
                         }, null, {}, true);
-                        if(_users.length<1){
+                        if(_users.length<1) {
+                            logger.error('No user with this username', _username);
+                            ret.error = 'No user with this username';
+                            return ret;
+                        }
+                        let user = _users[0];
+                        if(user[this.conf.user.passwordField] !== _password) {
                             logger.error('No user with this username password', _username);
                             ret.error = 'No user with this username password';
                             return ret;
                         }
-                        userRoles = _users[0][this.conf.user.rolesField];
+                        userRoles = user[this.conf.user.rolesField];
 
                         if(this.conf.user.jwt) {
-                            ret.token = jwt.sign({roles: userRoles}, this.conf.user.jwt.secret, {expiresIn: this.conf.user.jwt.expiresIn});
+                            let _user = {...user};
+                            delete _user[this.conf.user.passwordField];
+                            let newToken = {
+                                user: _user,
+                                roles: userRoles
+                            };
+                            let token = jwt.sign(newToken, this.conf.user.jwt.secret, {expiresIn: this.conf.user.jwt.expiresIn});
+
+                            if(this.conf.user.jwt.cookie) {
+                                ret.cookie = {
+                                    vals: {
+                                        [(this.conf.user.jwt.cookie.name) || 'jwt']: token
+                                    },
+                                    options: this.conf.user.jwt.cookie.options || {
+                                        httpOnly: true,
+                                        signed: true,
+                                        maxAge: this.conf.user.jwt.expiresIn || 3600*24,
+                                    }
+                                }
+                            } else {
+                                ret.token = token;
+                            }
+
                             return ret;
                         }
                     }

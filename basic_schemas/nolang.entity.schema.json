@@ -707,6 +707,13 @@
                         "type": "string"
                     }
                 },
+                "required": {
+                    "description": "required fields in this view",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "fastLoadImage": {
                     "type": "boolean",
                     "default": false,
@@ -715,6 +722,13 @@
                 "meta": {
                     "type": "boolean",
                     "description": "return meta data of schema and view if true"
+                },
+                "pagesize": {
+                    "type": "number"
+                },
+                "grid": {
+                    "type": "boolean",
+                    "description": "if this view is rendered with grid table"
                 }
             },
             "required": [
@@ -757,6 +771,14 @@
                 },
                 "limit": {
                     "description": "limitation of result docs",
+                    "type": "number"
+                },
+                "page": {
+                    "description": "page of result docs",
+                    "type": "number"
+                },
+                "pagesize": {
+                    "description": "pagesize of result docs",
                     "type": "number"
                 },
                 "sort": {
@@ -1387,6 +1409,21 @@
         },
         "$$rel": {
             "$ref": "#/definitions/ssRel"
+        },
+        "$$enum": {
+            "oneOf": [
+                {
+                    "type": "array",
+                    "items": true,
+                    "minItems": 1,
+                    "uniqueItems": true,
+                    "description": "array of titles, values are index of them starting from 0"
+                },
+                {
+                    "type": "object",
+                    "description": "key value"
+                }
+            ]
         }
     },
     "default": true

@@ -134,7 +134,7 @@ class storage_mongodb extends storage_main {
 
     async update(schema, packet, filter, filterrulesMethod) {
         await super.update(schema, packet, filter, filterrulesMethod);
-        let objs = await this.read(schema, filter, filterrulesMethod);
+        let objs = await this.read(schema, filter, filterrulesMethod, packet);
 
         objs.map(function (obj) {
             // obj = obj.merge(packet)
@@ -189,6 +189,8 @@ class storage_mongodb extends storage_main {
         }
 
         delete obj.packet.$$record;
+        delete obj.packet.$$schema;
+        delete obj.packet.$$header;
         logger.trace("UPDATING mongo", {packet:obj.packet, filter: obj.filter})
         if (obj.filter === {}) {
             logger.error('preventing to update without any filter')
