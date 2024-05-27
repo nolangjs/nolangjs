@@ -38,6 +38,7 @@
                 "objectid",
                 "userid",
                 "image",
+                "file",
                 "map",
                 "text",
                 "virtual",
@@ -94,55 +95,6 @@
                 }
             },
             "required": ["name"]
-        },
-        "ssObjectEvent": {
-            "description": "every json object can have some or all of these events, each item in event is a set",
-            "type": "object",
-            "additionalProperties": false,
-            "properties": {
-                "beforeCreate": {
-                    "type": [
-                        "object",
-                        "array"
-                    ]
-                },
-                "afterCreate": {
-                    "type": [
-                        "object",
-                        "array"
-                    ]
-                },
-                "beforeUpdate": {
-                    "type": [
-                        "object",
-                        "array"
-                    ]
-                },
-                "afterUpdate": {
-                    "type": [
-                        "object",
-                        "array"
-                    ]
-                },
-                "beforeDelete": {
-                    "type": [
-                        "object",
-                        "array"
-                    ]
-                },
-                "afterDelete": {
-                    "type": [
-                        "object",
-                        "array"
-                    ]
-                },
-                "onRead": {
-                    "type": [
-                        "object",
-                        "array"
-                    ]
-                }
-            }
         },
         "ssRule": {
             "$id": "ssRule",
@@ -301,6 +253,26 @@
                     "description": "key of a role",
                     "type": "string"
                 },
+                "actions": {
+                    "type": "array",
+                    "description": "array of access to actions",
+                    "items": {
+                        "type": "string",
+                        "description": "C:Create, R:Retrieve, U:Update, D:Delete, V:View, W:Empty Form, S:Search, A:All",
+                        "enum": [
+                            "C",
+                            "R",
+                            "U",
+                            "D",
+                            "V",
+                            "W",
+                            "S",
+                            "M",
+                            "A"
+                        ]
+                    },
+                    "default": "A"
+                },
                 "permissions": {
                     "description": "list of permissions to objects assigned to this role",
                     "type": "array",
@@ -315,16 +287,22 @@
                             },
                             "access": {
                                 "type": "array",
+                                "description": "array of access to actions",
                                 "items": {
+                                    "type": "string",
+                                    "description": "C:Create, R:Retrieve, U:Update, D:Delete, V:View, W:Empty Form, S:Search, A:All",
                                     "enum": [
                                         "C",
                                         "R",
                                         "U",
                                         "D",
+                                        "V",
+                                        "W",
+                                        "S",
+                                        "M",
                                         "A"
                                     ]
                                 },
-                                "description": "create, read, update, delete (CRUD), A:all",
                                 "default": "A"
                             }
                         },
@@ -346,7 +324,6 @@
                 }
             },
             "required": [
-                "permissions"
             ]
         },
         "ssRel": {
@@ -408,6 +385,9 @@
             ],
             "properties": {
                 "userId": {
+                    "type": "userid"
+                },
+                "token": {
                     "type": "userid"
                 },
                 "username": {
@@ -1378,9 +1358,6 @@
             "minItems": 0,
             "uniqueItems": true
         },
-        "$$events": {
-            "$ref": "#/definitions/ssObjectEvent"
-        },
         "$$views": {
             "type": "array",
             "items": {
@@ -1411,19 +1388,8 @@
             "$ref": "#/definitions/ssRel"
         },
         "$$enum": {
-            "oneOf": [
-                {
-                    "type": "array",
-                    "items": true,
-                    "minItems": 1,
-                    "uniqueItems": true,
-                    "description": "array of titles, values are index of them starting from 0"
-                },
-                {
-                    "type": "object",
-                    "description": "key value"
-                }
-            ]
+            "type": ["object", "array"],
+            "description": "object:key value, array: array of titles, values are index of them starting from 0"
         }
     },
     "default": true

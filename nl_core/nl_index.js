@@ -11,7 +11,6 @@ require('make-promises-safe');
 const Ajv = require('ajv');
 const addFormats = require("ajv-formats");
 const localize = require('ajv-i18n');
-const jwt = require('jsonwebtoken');
 
 //JsonLogic
 const jsonLogic = require("json-logic-js");
@@ -576,7 +575,7 @@ class nlCompiler {
                         }
                     },
                     "$$schema": rel.schema
-                });
+                },null, env );
 
                 let exists = returns?.length === 1;
                 if(! exists) {
@@ -613,6 +612,7 @@ class nlCompiler {
     }
 
     async callMethod(req_packet, env) {
+        //todo implement return of method
         let thes = this;
         try {
             /*if (req_packet.$$import) {
@@ -625,7 +625,7 @@ class nlCompiler {
             // let engineaddapter;
             if (header.action === 'M') {
                 if(header.method) {
-                    let method = itsSchema.$$methods.find(m=>m.name === header.method);
+                    let method = itsSchema.$$methods?.find(m=>m.name === header.method);
                     if(!method) {
                         return {
                             success: false, message: 'no method '+header.method
@@ -689,7 +689,7 @@ class nlCompiler {
                         } else if(method.handler){
                             let lastReturn = null;
                             //method.handler.map(async function (iPacket) {
-                            let pre = [];
+                            let pre = [];//todo document of pre
                             for(let iPacket of method.handler) {
                                 let deepcopy = {...iPacket};
 
@@ -768,7 +768,7 @@ class nlCompiler {
         }
 
         try {
-            await this.preparePacket(req_packet, _ssCompiler, data);
+            await this.preparePacket(req_packet, _ssCompiler, false);
 
             if(req_packet.$$import) {
                 req_packet = this.ajv.getSchema(req_packet.$$import).schema;
@@ -887,7 +887,7 @@ class nlCompiler {
                                                     filter: rel.cache.filter,
                                                     fields: [rel.key].concat(rel.return)
                                                 }
-                                            });
+                                            }, null, env);
                                             for (let val of vals) {
                                                 this._nl_cache.redisClient.set(cacheKey + '_' + val[rel.key], val[rel.return], {EX: rel.cache.time || 60});
                                             }
@@ -905,7 +905,7 @@ class nlCompiler {
                                                 },
                                                 fields: [rel.key].concat(rel.return)
                                             }
-                                        });
+                                        }, null, env);
                                         if(Array.isArray(rel.return)) {
                                             for(let r of rel.return) {
                                                 obj[field+'.'+r] = val[0][r];
@@ -1098,10 +1098,10 @@ class nlCompiler {
 
         // schema = this.handlePacket(schema, schema);
         let _env = {...env};
-        schema = this.preparePacket(schema, {..._env, schema: schema});
+        schema = await this.preparePacket(schema, {..._env, schema: schema}, false);
 
         //prepare packet
-        req_packet = this.preparePacket(req_packet, {..._env, data: req_packet, schema: schema});
+        req_packet = await this.preparePacket(req_packet, {..._env, data: req_packet, schema: schema}, false);
 
 
         let action = header?.action;
@@ -1140,7 +1140,7 @@ class nlCompiler {
 
         if ('CRUDL'.indexOf(action) >= 0) {
             //do dataPacket
-            data_message = await _ssCompiler.dataPacket({...req_packet}, schema);
+            data_message = await _ssCompiler.dataPacket({...req_packet}, schema, env);
 
             let _then = () => (data_message && ((Array.isArray(data_message) && data_message.length>0) || (!Array.isArray(data_message) && typeof data_message ==='object' /*&& data_message.success*/)));
             if(header && header.then && _then()) {
@@ -1172,10 +1172,11 @@ class nlCompiler {
         /*if(this.appvars && this.appvars.usesocket)
             nlCompiler.checkEmits(req_packet, header, action, data_message);*/
 
-        if(header && header.debug) {
+        if(header?.debug) {
             logger.log('Debug '+ new Date());
-            logger.log('command', req_packet);
-            logger.log('Response', data_message);
+            logger.log(req_packet);
+            logger.log('Response');
+            logger.log(data_message);
         }
 
         /*if(returnLength) {
@@ -1239,6 +1240,11 @@ class nlCompiler {
             data_message = await this.renderView(req_packet, data_message, _env);
         }
 
+        //return in header
+        if(header?.return) {
+            data_message = this.handlePacket(header.return, {data:data_message, env: env});
+        }
+
         //set cache
         if(header?.cache && this._nl_cache) {
             this._nl_cache.redisClient.set(header.cache?.key || env?.request?.url, JSON.stringify(data_message), {EX: header.cache.time});
@@ -1247,7 +1253,7 @@ class nlCompiler {
         return data_message;
     }
 
-    preparePacket(req_packet1, values) {
+    async preparePacket(req_packet1, values, calc) {
 
         let req_packet = {...req_packet1};
         //do {{}} signs
@@ -1260,31 +1266,33 @@ class nlCompiler {
             }
         })*/
 
-        /*let thes = this;
+        if(calc){
+            console.log('lllllllllllllllll')
+            let thes = this;
+            await this.deepEachAsync(req_packet, async (k, obj) => {
+                let objk = obj[k];
+                // let values = evn;// {...env, this: objk};
 
-        this.deepEach(req_packet, (k, obj) => {
-            let objk = obj[k];
-            // let values = evn;// {...env, this: objk};
-
-            //do $$ handler
-            if(typeof objk === 'object'){
+                //do $$ handler
+                //if(typeof objk === 'object'){
                 //calculate
-                if (objk.$$) {
-                    if(typeof objk.$$ === 'object') {
-                        obj[k] = jsonLogic.apply(objk.$$, values);
+                if (objk.$$calc) {
+                    if (typeof objk.$$calc === 'object') {
+                        obj[k] = jsonLogic.apply(objk.$$calc, values);
                         logger.debug('$$ debug', objk, values)
-                    } else if(typeof objk.$$ === 'string') {
-                        obj[k] = jsonLogic.apply({var:objk.$$}, values);
-                        logger.debug('$$ debug var', objk.$$, values)
+                    } else if (typeof objk.$$calc === 'string') {
+                        obj[k] = jsonLogic.apply({var: objk.$$calc}, values);
+                        logger.debug('$$ debug var', objk.$$calc, values)
                     }
+                } else
+                    //nested request
+                if (objk.$$header) {
+                    let x = await thes.runPacket(objk);
+                    obj[k] = x;
                 }
-
-                /!*!//nested request
-                if(objk.$$header) {
-                    obj[k] = await thes.runPacket(objk);
-                }*!/
-            }
-        });*/
+                //}
+            });
+        }
 
         return req_packet;
     }
@@ -1461,8 +1469,8 @@ class nlCompiler {
             }
 
             if(env) {
-                schema = this.preparePacket(schema, {...env, schema: schema});
-                packet = this.preparePacket(packet, {...env, schema: schema});
+                schema = await this.preparePacket(schema, {...env, schema: schema}, false);
+                packet = await this.preparePacket(packet, {...env, schema: schema}, true);
             }
 
 
@@ -1511,7 +1519,8 @@ class nlCompiler {
             if(schema.$$roles && this.conf.user?.authenticate && !ignoreUser) {
 
                 console.time("checkpermission");
-                let checkResult = await this.checkRolesPermission(schema.$$roles, packet, env);
+                let checkRolesPermission = require('./nl_check_permission');
+                let checkResult = await checkRolesPermission.bind(this)(schema.$$roles, packet, env);
                 if(!checkResult.hasPermission) {
                     //return this.ajv.errors;
                     /*if(!this.currentUser){
@@ -1605,7 +1614,7 @@ class nlCompiler {
                         }
                     }*/
                     //await this.runRuleOf(schema, 'beforeCreate', packet);
-                    let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet);
+                    let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet, env);
                     if(_result?.success === false) {
                         return {
                             error : _result.error,
@@ -1631,7 +1640,7 @@ class nlCompiler {
                         }
                     }*/
                     //await this.runRuleOf(schema, 'afterCreate', packet);
-                    await rule_runner.runOnAction.bind(this)(schema, 'after', header.action, packet);
+                    await rule_runner.runOnAction.bind(this)(schema, 'after', header.action, packet, env);
                     _ret.success = true;
                     return _ret;
                 }
@@ -1646,7 +1655,7 @@ class nlCompiler {
                     }
                 }*/
                 //await this.runRuleOf(schema, 'onRead', packet);
-                let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet);
+                let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet, env);
                 if(_result===false) {
                     return {
                         error : " not passed a rule",
@@ -1677,7 +1686,7 @@ class nlCompiler {
                     }
                 }*/
                 //await this.runRuleOf(schema, 'onRead', packet);
-                let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet);
+                let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet, env);
                 if(_result===false) {
                     return {
                         error : " not passed a rule",
@@ -1723,7 +1732,7 @@ class nlCompiler {
                 // delete packet.$$header;
 
                 //await this.runRuleOf(schema, 'beforeUpdate', packet);
-                let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet);
+                let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet, env);
                 if(_result===false) {
                     return {
                         error : " not passed a rule",
@@ -1774,7 +1783,7 @@ class nlCompiler {
                             }
                         }*/
                         //await thes.runRuleOf(schema, 'afterUpdate', packet);
-                        await rule_runner.runOnAction.bind(this)(schema, 'after', header.action, packet);
+                        await rule_runner.runOnAction.bind(this)(schema, 'after', header.action, packet, env);
                     }
                 });
 
@@ -1801,7 +1810,7 @@ class nlCompiler {
                     }
                 }*/
                 // await this.runRuleOf(schema, 'beforeDelete', packet);
-                let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet);
+                let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet, env);
                 if(_result===false) {
                     return {
                         error : " not passed a rule",
@@ -1825,7 +1834,7 @@ class nlCompiler {
                     }
                 }*/
                 // await this.runRuleOf(schema, 'afterDelete', packet);
-                await rule_runner.runOnAction.bind(this)(schema, 'after', header.action, packet);
+                await rule_runner.runOnAction.bind(this)(schema, 'after', header.action, packet, env);
 
                 ret.success = true;
                 return ret;
@@ -1937,188 +1946,7 @@ class nlCompiler {
         return true;
     }
 
-    async checkRolesPermission(roles, packet, env) {
-        //TODO create permission routing logs
-        //TODO return permission messages to user
 
-        const header = packet.$$header;
-        let userAction = (header && header.action) ? header.action : '' ;
-
-        let hasPermission = false;
-
-        let ret = {
-            success: false
-        };
-
-        let user = null;
-        let userRoles = null;
-
-        if(env?.request?.cookies) {
-            let token = null;
-            let jwtcookiename = this.conf.user.jwt?.cookie?.name || 'jwt';
-            if(env?.request?.cookies[jwtcookiename]) {
-                token = env.request.cookies[jwtcookiename];
-                try{
-                    let decoded = jwt.verify(token, this.conf.user.jwt?.secret);
-                    user = decoded.user;
-                    userRoles = decoded.roles;
-                    //todo , token table instead of roles in jwt token
-                } catch (err) {
-                    ret.error = err;
-                    return ret;
-                }
-            }
-        }
-
-        if (header.user) {
-            // this.currentUser = header.user;
-
-
-            if(header.user.roles){
-                if(!this.conf.user.directRoles) {
-                    ret.error = "No permission to direct roles";
-                    return ret;
-                }
-                userRoles = header.user.roles;
-            } else
-            //jwt token
-            if(header.user.token) {
-                try{
-                    let decoded = jwt.verify(header.user.token, this.conf.user.jwt?.secret);
-                    user = decoded.user;
-                    userRoles = decoded.roles;
-                    //todo , token table instead of roles in jwt token
-                } catch (err) {
-                    ret.error = err;
-                    return ret;
-                }
-            } else
-            //if header.user has username and password
-            if(header.user.username) {
-                if(header.user.password) {
-                    if(this.conf.user.schema) {
-                        let _username = header.user[this.conf.user.usernameField] || header.user.username || header.user.user;
-                        let _password = header.user[this.conf.user.passwordField] || header.user.password || header.user.pass;
-                        let _users = await this.dataPacket({
-                            $$schema: this.conf.user.schema,
-                            $$header: {
-                                action: 'R',
-                                filter: {
-                                    [this.conf.user.usernameField]: _username,
-                                    // [this.conf.user.passwordField]: _password
-                                },
-                                cache: {
-                                    key: new Buffer( _username+_password).toString('base64'), //fixme encrypt it
-                                    time: 100
-                                }
-                            }
-                        }, null, {}, true);
-                        if(_users.length<1) {
-                            logger.error('No user with this username', _username);
-                            ret.error = 'No user with this username';
-                            return ret;
-                        }
-                        let user = _users[0];
-                        if(user[this.conf.user.passwordField] !== _password) {
-                            logger.error('No user with this username password', _username);
-                            ret.error = 'No user with this username password';
-                            return ret;
-                        }
-                        userRoles = user[this.conf.user.rolesField];
-
-                        if(this.conf.user.jwt) {
-                            let _user = {...user};
-                            delete _user[this.conf.user.passwordField];
-                            let newToken = {
-                                user: _user,
-                                roles: userRoles
-                            };
-                            let token = jwt.sign(newToken, this.conf.user.jwt.secret, {expiresIn: this.conf.user.jwt.expiresIn});
-
-                            if(this.conf.user.jwt.cookie) {
-                                ret.cookie = {
-                                    vals: {
-                                        [(this.conf.user.jwt.cookie.name) || 'jwt']: token
-                                    },
-                                    options: this.conf.user.jwt.cookie.options || {
-                                        httpOnly: true,
-                                        signed: true,
-                                        maxAge: this.conf.user.jwt.expiresIn || 3600*24,
-                                    }
-                                }
-                            } else {
-                                ret.token = token;
-                            }
-
-                            return ret;
-                        }
-                    }
-                }
-            }
-
-        }
-        /* else {
-            if(this.currentUser){
-                userRoles = this.currentUser.roles;
-            }
-        }*/
-
-        let _role = null;
-        for (let r = 0; r < roles.length; r++) {
-            let role = roles[r];
-
-            //roleid *
-            if(role.roleId === '*') {
-                if(
-                    role.permissions.some(per => per.access.includes(userAction))
-                    ||
-                    role.permissions.some(per => per.access.includes("A"))
-                ){
-                    hasPermission = true;
-                    _role = role;
-                    break;
-                }
-            }
-
-            if (userRoles) {
-                if (userRoles.some(ur => ur.roleId === role.roleId &&
-                    (
-                        role.permissions.some(per => per.access.includes(userAction))
-                        ||
-                        role.permissions.some(per => per.access.includes("A")))
-                ) )
-                {
-                    hasPermission = true;
-                    _role = role;
-                    break;
-                }
-            }
-        }
-
-        if (hasPermission) {
-            //check rules of role todo not good place
-            if (_role.$$rules) {
-                for (let rule of _role.$$rules) {
-                    if (rule.filter) {
-                        logger.log(rule.ruleDef)
-                        if (packet.$$header) {
-                            if (!packet.$$header.filter) {
-                                packet.$$header.filter = {}
-                            }
-                            Object.assign(packet.$$header.filter, this.handlePacket(rule.filter, packet));
-                        }
-                    }
-                }
-            }
-            ret.hasPermission = true;
-            return ret;
-        }
-
-        let er = "not permission " + userAction + " in schema  " + packet.$$schema;
-        logger.error(er);
-        ret.error = er;
-        return ret;
-    }
 
     /*requireAuthentication(req, res, next, _ssCompiler){
         //jwt

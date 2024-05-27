@@ -1,6 +1,6 @@
 const nl_endpoint = require('./nl_endpoint');
 const express = require('express');
-const bodyParser = require('body-parser');
+// const bodyParser = require('body-parser');
 // const express_ws = require('express-ws');
 const WebSocketServer = require('ws');
 const cookieParser = require('cookie-parser');
@@ -14,7 +14,7 @@ let _reloadReturned;
  * @desc http endpoint
  * @type {module.http_nl_endpoint}
  */
-module.exports = class http_nl_endpoint extends nl_endpoint{
+module.exports = class http_nl_endpoint extends nl_endpoint {
 
     async start() {
         const app = express();
@@ -142,7 +142,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
             }*/
             //create a handler method bounded to "app" with path "route.path"
             //which runs nl_endpoint_method , by command "route.return" or "req.body"
-            app[method].bind(app)(route.path, [_cors, bodyParser[bp](opt)] , (req, res)=>{
+            app[method].bind(app)(route.path, [_cors, express[bp](opt)] , (req, res)=>{
                 let command = route.return || req.body;
                 if(req.files && req.body.command) {
                     command = JSON.parse(req.body.command);
@@ -207,8 +207,6 @@ module.exports = class http_nl_endpoint extends nl_endpoint{
                 }
 
                 thes.nl_endpoint_method(command, listener, _req).then(response=>{
-
-
                     //check upload files
                     if(req.files){
                         try {

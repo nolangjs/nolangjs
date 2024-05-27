@@ -362,6 +362,29 @@
                     "description": "name of field indicating roles assigned to user",
                     "type": "string"
                 },
+                "token": {
+                    "type": "object",
+                    "description": "a schema which maps tokens to users",
+                    "properties": {
+                        "type": {
+                            "type": "string",
+                            "enum": ["jwt", "custom"],
+                            "default": "jwt"
+                        },
+                        "schema": {
+                            "type": "string",
+                            "description": "schema which stores tokens and ids of users"
+                        },
+                        "tokenField": {
+                            "type": "string",
+                            "description": "name of field indicating token"
+                        },
+                        "useridField": {
+                            "type": "string",
+                            "description": "name of field indicating userid"
+                        }
+                    }
+                },
                 "jwt": {
                     "description": "jsonwebtoken",
                     "type": "object",
@@ -376,7 +399,7 @@
                         },
                         "cookie": {
                             "type": "object",
-                            "description": "if exists save token in cookie",
+                            "description": "if exists, save token in cookie",
                             "properties": {
                                 "name": {
                                     "type": "string",
@@ -424,6 +447,11 @@
                 },
                 "directRoles": {
                     "description": "allow set roles directly in script?",
+                    "type": "boolean",
+                    "default": false
+                },
+                "directUserId": {
+                    "description": "allow set userid directly in script?",
                     "type": "boolean",
                     "default": false
                 }

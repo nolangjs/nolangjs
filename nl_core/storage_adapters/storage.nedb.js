@@ -75,6 +75,7 @@ class storage_nedb extends storage_main {
 
         for(let row of res){
             delete row.$$record;
+            row.$$objid = row._id;
         }
 
         return res;
