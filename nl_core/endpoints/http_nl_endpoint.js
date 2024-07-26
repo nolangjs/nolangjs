@@ -77,7 +77,9 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
         let uploadRoot = '';
         if(this.conf.upload) {
             const fileUpload = require("express-fileupload");
-            app.use(fileUpload());
+            app.use(fileUpload({
+                limits: { fileSize: 500 * 1024 * 1024 },
+            }));
             uploadRoot = this.conf.upload.root;
             if(!path.isAbsolute(uploadRoot)) {
                 uploadRoot = path.join(global.appPath, uploadRoot)
@@ -166,7 +168,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                     }
                 }
                 let listener = {};
-                let _req = {
+                let _env = {
                     request: {
                         params: req.params,
                         body: req.body,
@@ -174,8 +176,13 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                         url: req.url,
                         headers: req.headers,
                         cookies: req.cookies,
-                        signedCookies: req.signedCookies
+                        signedCookies: req.signedCookies,
+                        z: Math.random()
                     }
+                };
+                let _req = {
+                    data: command,
+                    env: _env
                 }
                 const ST = require('stjs');
                 command = ST.select(_req).transformWith(command).root();
@@ -199,14 +206,14 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                         //delete listener handler
                         listener.handler = null;
                     })
-                    thes.nl_endpoint_method(command, listener, _req).then(response=>{
+                    thes.nl_endpoint_method(command, listener, _env).then(response=>{
                         //res.json(response);
                         res.write(`retry: 10000\n\ndata: ${JSON.stringify(response)}\n\n`);
                     })
                     return;//ignore rest of handler
                 }
 
-                thes.nl_endpoint_method(command, listener, _req).then(response=>{
+                thes.nl_endpoint_method(command, listener, _env).then(response=>{
                     //check upload files
                     if(req.files){
                         try {
@@ -217,16 +224,16 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                                     fileExt = '.' + require('mime').extension(file.mimetype);
                                 }
                                 try {
-                                    let filePath = path.join(uploadRoot, command.$$schema, response?.$$objid);
+                                    let filePath = path.join(uploadRoot, command.$$schema, response?.$$objid+'');
                                     if(!fs.existsSync(filePath))
-                                        fs.mkdirSync(filePath);
+                                        fs.mkdirSync(filePath, {recursive: true});
                                     file.mv(filePath+'/'+fileKey+fileExt, (err)=>{
                                         // if (err)
                                         // return res.status(500).send(err);
                                         ;
                                     })
                                 } catch (e) {
-                                    logger.error('file could not be saved!')
+                                    logger.error('file could not be saved!', e.message)
                                 }
                             }
                         } catch (e) {
@@ -237,7 +244,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
 
                     //cookies
                     if(route.type === 'json') {//todo, how to set cookies for non json types
-                        if(response.cookie) {
+                        if(response?.cookie) {
                             for(let [name,value] of Object.entries(response.cookie.vals)) {
                                 res.cookie(name, value, response.cookie.options );
                             }

@@ -76,12 +76,12 @@ class storage_postgresql extends storage_main {
         });
 
         try {
-            let result = await this.query(sql.query);
+            let result = await this.query(sql.query.slice(0,-1) + ' RETURNING *');
 
             return {
                 success: true,
                 message: "ADDED " + result?.rowCount + " " + table,
-                newId: result[this.storage.id || 'id']
+                $$objid: result.rows[0][this.storage.id || 'id']
             };
         } catch (e) {
             logger.error(e)
@@ -101,7 +101,7 @@ class storage_postgresql extends storage_main {
         return await this.readX(schema, packet, filter, filterrulesMethod,true);
     }
 
-    async readX(schema, packet, filter, filterrulesMethod, count) {
+    async readX(schema, packet, filter, filterrulesMethod, count, nojoin) {
         let table = this.storage.table || schema.$id;
         let fields = [];
         /*if(schema.properties) {
@@ -120,16 +120,29 @@ class storage_postgresql extends storage_main {
         for (let f in schema.properties) {
             let field = schema.properties[f];
             let selField = null;
-            if (field.$$rel && field.$$rel.join) {
+            if (!nojoin && field.$$rel && field.$$rel.join) {
                 hasJoin = true;
                 join[field.$$rel.schema] = {
                     on: {
-                        [field.$$rel.key]: f
+                        [field.$$rel.schema+'.'+field.$$rel.key]: f
                     }
                 };
-                selField = field.$$rel.schema + '.' + field.$$rel.return + ' AS ' + (field.title || (field.$$rel.schema + '_' + field.$$rel.return))
+                //selField = field.$$rel.schema + '.' + field.$$rel.return + ' AS ' + (field.title || (field.$$rel.schema + '_' + field.$$rel.return))
+                selField =
+                    [
+                        {
+                            table: table,
+                            name: f
+                        },
+                        {
+                            table: field.$$rel.schema,
+                            name: field.$$rel.return,
+                            alias: (field.$$rel.alias || (field.$$rel.schema + '_' + field.$$rel.return))
+                        }
+                    ]
             } else {
-                selField = table + '.' + f;
+                //selField = table + '.' + f;
+                selField = {table: table, name: f}
             }
 
             fields.push(selField);
@@ -144,7 +157,7 @@ class storage_postgresql extends storage_main {
         let table_id = this.storage.id;
         if (table_id) {
             if (fields.indexOf(table_id) === -1) {
-                fields.push(table_id);
+                fields.push({table: table, name: table_id});
             }
         }
 
@@ -209,7 +222,7 @@ class storage_postgresql extends storage_main {
 
     async update(schema, packet, filter, filterrulesMethod) {
         // await super.update(schema, packet, filter, filterrulesMethod);
-        let objs = await this.read(schema, filter, filterrulesMethod, packet);
+        let objs = await this.readX(schema, packet, filter, filterrulesMethod, false, true);
 
         delete packet.$$schema;
         delete packet.$$header;
@@ -248,7 +261,7 @@ class storage_postgresql extends storage_main {
         let result = await this.query(sql);
 
 
-        return { success: true, message: result.deletedCount + " object DELETED FROM "+table};
+        return {success: true, deletedCount: result.rowCount};
     }
 
     async commit(obj) {

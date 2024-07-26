@@ -15,6 +15,7 @@ async function checkRolesPermission(roles, packet, env) {
 
     let userid = null;
     let userRoles = null;
+    let user = null;
 
     if(env?.request?.cookies) {
         let token = null;
@@ -25,6 +26,8 @@ async function checkRolesPermission(roles, packet, env) {
                 let decoded = jwt.verify(token, this.conf.user.jwt?.secret);
                 userid = decoded.userid;
                 userRoles = decoded.roles;
+                user = decoded.user;
+
                 if(this.conf.user.token) {
                     //todo , token table instead of roles in jwt token
                     //todo , jwt OR token table
@@ -47,7 +50,7 @@ async function checkRolesPermission(roles, packet, env) {
                         ret.error = 'No user with this username';
                         return ret;
                     }
-                    let userid = _users[0][this.conf.user.token.useridField];
+                    userid = _users[0][this.conf.user.token.useridField];
                 }
             } catch (err) {
                 ret.error = err;
@@ -106,12 +109,16 @@ async function checkRolesPermission(roles, packet, env) {
                         ret.error = 'No user with this username';
                         return ret;
                     }
-                    let user = _users[0];
-                    if (user[this.conf.user.passwordField] !== _password) {
+                    let _user = _users[0];
+
+                    if (_user[this.conf.user.passwordField] !== _password) {
                         logger.error('No user with this username password', _username);
                         ret.error = 'No user with this username password';
                         return ret;
                     }
+                    userid = _user.$$objid;
+                    user = {..._user};
+                    delete user[this.conf.user.passwordField];
                     userRoles = user[this.conf.user.rolesField];
                     if (this.conf.user.jwt) {
                         // let _user = {...user};
@@ -119,7 +126,8 @@ async function checkRolesPermission(roles, packet, env) {
                         //todo how to delete other unneeded fields?
                         let newToken = {
                             userid: user.$$objid,
-                            roles: userRoles
+                            roles: userRoles,
+                            user: user
                         };
                         let token = jwt.sign(newToken, this.conf.user.jwt.secret, {expiresIn: this.conf.user.jwt.expiresIn});
 
@@ -145,7 +153,7 @@ async function checkRolesPermission(roles, packet, env) {
         } else
         if (header.user.userid) {
             if (!userRoles) {
-
+                //TODO
             }
         }
 
@@ -189,9 +197,10 @@ async function checkRolesPermission(roles, packet, env) {
     }
 
     if (hasPermission) {
-        //check rules of role todo not good place
         env.userid = userid;
         env.userRoles = userRoles;
+        env.user = user;
+        //check rules of role todo not good place
         if (_role.filter) {//todo document of role.filter
             /*for (let rule of _role.$$rules) {
                 if (rule.filter) {

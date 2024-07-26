@@ -15,6 +15,8 @@ const localize = require('ajv-i18n');
 //JsonLogic
 const jsonLogic = require("json-logic-js");
 
+const {JSONPath} = require('jsonpath-plus');
+
 //uuid
 const uuid = require('uuid-random');
 
@@ -698,7 +700,7 @@ class nlCompiler {
                                     deepcopy = await thes.handlePacket(deepcopy, {params: header.params, env: env, schema: itsSchema, pre: pre});
                                 }
 
-                                lastReturn = await thes.runPacket(deepcopy);
+                                lastReturn = await thes.runPacket(deepcopy, null, env);
                                 pre.push(lastReturn);
                             };
 
@@ -826,6 +828,7 @@ class nlCompiler {
             delete schema.$$rules;
             delete schema.$$roles;
 
+
             async function z(schema) {
                 await _ssCompiler.deepEachAsync(schema, async function (k, obj) {
                     if(obj[k] && obj[k].$ref) {
@@ -906,12 +909,14 @@ class nlCompiler {
                                                 fields: [rel.key].concat(rel.return)
                                             }
                                         }, null, env);
-                                        if(Array.isArray(rel.return)) {
-                                            for(let r of rel.return) {
-                                                obj[field+'.'+r] = val[0][r];
+                                        if(val.length > 0) {
+                                            if (Array.isArray(rel.return)) {
+                                                for (let r of rel.return) {
+                                                    obj[field + '.' + r] = val[0][r];
+                                                }
+                                            } else {
+                                                obj[field + '.' + rel.key] = val[0][rel.return]
                                             }
-                                        } else {
-                                            obj[field+'.'+rel.key] = val[0][rel.return]
                                         }
                                     }
                                 }
@@ -1041,7 +1046,7 @@ class nlCompiler {
             //    lastReturn = await thes.runPacket({ ... _apacket});
             //});
             for(let _apacket of req_packet){
-                lastReturn = await thes.runPacket({ ... _apacket});
+                lastReturn = await thes.runPacket({ ... _apacket}, null, env);
             }
 
             return lastReturn;
@@ -1058,10 +1063,26 @@ class nlCompiler {
             }
         }*/
 
-        const header = req_packet.$$header;
+        let header = req_packet.$$header;
+
+
+
+
+        //depricated
+        // req_packet = this.handlePacket(req_packet, req_packet);
+
+        let Schema = this.ajv.getSchema(req_packet.$$schema);
 
         if(!header) {
-            return {success: false, message: "$$header not exists!", error: 'MISSING_$$HEADER'}
+            header = {
+                action : "W"
+            }
+            /*if(Schema) {
+               header = {
+                   action : "W"
+               }
+            } else
+                return {success: false, message: "$$header not exists!", error: 'MISSING_$$HEADER'}*/
         }
 
         /** check cache
@@ -1086,10 +1107,6 @@ class nlCompiler {
         }
 
 
-        //depricated
-        // req_packet = this.handlePacket(req_packet, req_packet);
-
-        let Schema = this.ajv.getSchema(req_packet.$$schema);
         if(!Schema){
             logger.error("dataPacket: no Schema "+req_packet.$$schema);
             return {success:false, errorcode: 'SCHEMA_NOT_EXISTS', message: "No Schema with id "+req_packet.$$schema};
@@ -1098,10 +1115,10 @@ class nlCompiler {
 
         // schema = this.handlePacket(schema, schema);
         let _env = {...env};
-        schema = await this.preparePacket(schema, {..._env, schema: schema}, false);
+        schema = await this.preparePacket(schema, {env: _env, data: req_packet, schema: schema}, false);
 
         //prepare packet
-        req_packet = await this.preparePacket(req_packet, {..._env, data: req_packet, schema: schema}, false);
+        req_packet = await this.preparePacket(req_packet, {env:_env, data: req_packet, schema: schema}, true);
 
 
         let action = header?.action;
@@ -1120,7 +1137,7 @@ class nlCompiler {
         let data_message;
 
         if ('M'.indexOf(action) >= 0) {
-            data_message = await _ssCompiler.callMethod(req_packet, env);
+            data_message = await _ssCompiler.callMethod(req_packet, _env);
             // header = req_packet.data.$$header;
             // action = header.action;
         }
@@ -1140,13 +1157,22 @@ class nlCompiler {
 
         if ('CRUDL'.indexOf(action) >= 0) {
             //do dataPacket
-            data_message = await _ssCompiler.dataPacket({...req_packet}, schema, env);
+            let _packet = {...req_packet};
+            data_message = await _ssCompiler.dataPacket(_packet, schema, _env);
+
+            if(header?.hasOwnProperty('path')) {
+                data_message = JSONPath(header.path, data_message);
+            }
+
+            if(header?.hasOwnProperty('get') && Array.isArray(data_message)) {
+                data_message = data_message[header.get];
+            }
 
             let _then = () => (data_message && ((Array.isArray(data_message) && data_message.length>0) || (!Array.isArray(data_message) && typeof data_message ==='object' /*&& data_message.success*/)));
-            if(header && header.then && _then()) {
-                header.then = ST.select({ [req_packet.$$schema] : Array.isArray(data_message)?data_message[0]:data_message}).transformWith(header.then).root();
+            if(header?.then && _then()) {
+                header.then = ST.select({ script: req_packet, [req_packet.$$schema] : Array.isArray(data_message)?data_message[0]:data_message}).transformWith(header.then).root();
                 if (header.then.$$header) {
-                    return _ssCompiler.runPacket(header.then, _env);
+                    return _ssCompiler.runPacket(header.then, null, _env);
                 } else if(header.then.$$set) {
                     for(let key in header.then.$$set) {
                         data_message[key] = header.then.$$set[key];
@@ -1156,9 +1182,9 @@ class nlCompiler {
 
             let _else = () => (!data_message || ((!Array.isArray(data_message) && typeof data_message ==='object' && !data_message.success) || (Array.isArray(data_message) && data_message.length<1)));
             if(header?.else && _else()) {
-                header.else = ST.select({script: req_packet}).transformWith(header.else).root();
+                header.else = ST.select({ script: req_packet, [req_packet.$$schema] : Array.isArray(data_message)?data_message[0]:data_message}).transformWith(header.else).root();
                 if (header.else.$$header) {
-                    return _ssCompiler.runPacket(header.else, _env);
+                    return _ssCompiler.runPacket(header.else, null, _env);
                 }/* else if(header.else.$$new) {
                     if(!data_message.$$new)
                         data_message.$$new = {};
@@ -1242,22 +1268,22 @@ class nlCompiler {
 
         //return in header
         if(header?.return) {
-            data_message = this.handlePacket(header.return, {data:data_message, env: env});
+            data_message = this.handlePacket(header.return, {data:data_message, env: _env});
         }
 
         //set cache
         if(header?.cache && this._nl_cache) {
-            this._nl_cache.redisClient.set(header.cache?.key || env?.request?.url, JSON.stringify(data_message), {EX: header.cache.time});
+            this._nl_cache.redisClient.set(header.cache?.key || _env?.request?.url, JSON.stringify(data_message), {EX: header.cache.time});
         }
 
         return data_message;
     }
 
-    async preparePacket(req_packet1, values, calc) {
+    async preparePacket(req_packet1, env, calc) {
 
         let req_packet = {...req_packet1};
         //do {{}} signs
-        req_packet = ST.select(values).transformWith(req_packet).root();
+        req_packet = ST.select(env).transformWith(req_packet).root();
 
         /*let thes = this;
         this.deepEach(req_packet, (k,obj)=>{
@@ -1267,27 +1293,26 @@ class nlCompiler {
         })*/
 
         if(calc){
-            console.log('lllllllllllllllll')
             let thes = this;
             await this.deepEachAsync(req_packet, async (k, obj) => {
                 let objk = obj[k];
-                // let values = evn;// {...env, this: objk};
+                // let env = evn;// {...env, this: objk};
 
                 //do $$ handler
                 //if(typeof objk === 'object'){
                 //calculate
                 if (objk.$$calc) {
                     if (typeof objk.$$calc === 'object') {
-                        obj[k] = jsonLogic.apply(objk.$$calc, values);
-                        logger.debug('$$ debug', objk, values)
+                        obj[k] = jsonLogic.apply(objk.$$calc, env);
+                        logger.debug('$$ debug', objk, env)
                     } else if (typeof objk.$$calc === 'string') {
-                        obj[k] = jsonLogic.apply({var: objk.$$calc}, values);
-                        logger.debug('$$ debug var', objk.$$calc, values)
+                        obj[k] = jsonLogic.apply({var: objk.$$calc}, env);
+                        logger.debug('$$ debug var', objk.$$calc, env)
                     }
                 } else
                     //nested request
-                if (objk.$$header) {
-                    let x = await thes.runPacket(objk);
+                if (objk.$$header && !["then","else"].includes(k)) {
+                    let x = await thes.runPacket(objk, null, env);
                     obj[k] = x;
                 }
                 //}
@@ -1439,10 +1464,6 @@ class nlCompiler {
         return packet;
     }
 
-   /* async runRuleOf(schema, when, action, packet) {
-
-    }*/
-
     async dataPacket(packet, schema, env, ignoreUser) {
         try {
             //do each item separately if packet is an array
@@ -1469,8 +1490,8 @@ class nlCompiler {
             }
 
             if(env) {
-                schema = await this.preparePacket(schema, {...env, schema: schema}, false);
-                packet = await this.preparePacket(packet, {...env, schema: schema}, true);
+                schema = await this.preparePacket(schema, {env: env, schema: schema}, false);
+                packet = await this.preparePacket(packet, {env: env, schema: schema}, true);
             }
 
 
@@ -1517,7 +1538,6 @@ class nlCompiler {
 
             //check permission
             if(schema.$$roles && this.conf.user?.authenticate && !ignoreUser) {
-
                 console.time("checkpermission");
                 let checkRolesPermission = require('./nl_check_permission');
                 let checkResult = await checkRolesPermission.bind(this)(schema.$$roles, packet, env);
@@ -1536,11 +1556,18 @@ class nlCompiler {
                             "message": "No Permission to data action"
                         }
                     }*/
-                    if(checkResult.token)
+                    if(checkResult.token) {
                         return {
                             success: true,
                             token: checkResult.token
                         };
+                    }
+                    if(checkResult.cookie) {
+                        return {
+                            success: true,
+                            cookie: checkResult.cookie
+                        };
+                    }
                     return {
                         success: false,
                         error: checkResult.error
@@ -1945,8 +1972,6 @@ class nlCompiler {
         }
         return true;
     }
-
-
 
     /*requireAuthentication(req, res, next, _ssCompiler){
         //jwt

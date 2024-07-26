@@ -1,6 +1,9 @@
 let ST = require('./st');
 let ss_obj = 'dl';
 const logger = global.logger;
+const jmoment = require('jalali-moment');
+const jsonLogic = require("json-logic-js");
+jmoment.locale('fa');
 
 // $$VM = {};
 
@@ -23,7 +26,7 @@ function render_object(obj) {
         if(key.startsWith('$')){
 
         } else if(key === 'style') {
-           props += ` style="${render_style(obj[key])}"`;
+            props += ` style="${render_style(obj[key])}"`;
         } else {
             props += ` ${key}="${obj[key]}"`
             // console.log(key, obj[key], ` ${key}="${obj[key]}"`)
@@ -65,48 +68,49 @@ function setCells(parentCell, vi, tempCells) {
 
 function getView(itsSchema, header, parentView) {
     let view;
-    if (!itsSchema.$$views || itsSchema.$$views.length === 0) {
+    /*if (!itsSchema.$$views || itsSchema.$$views.length === 0) {
         //throw new Exception("no view exists in " + itsSchema.$id);
         logger.trace("no view exists in " + itsSchema.$id);
         if (!itsSchema.$id) {
             logger.trace(itsSchema)
         }
         return null;
-    } else {
-        if (header && header.view) {
-            view = itsSchema.$$views.find( (v) => {
-                return (( (v.viewId === header.view) /*|| (v.view && v.view.indexOf(header.view) > -1)*/  ) && !v.disable)            });
-            if (view == null) {
-                // throw new Exception("no view exists by view " + header.view + " in " + itsSchema.$id);
-                logger.trace("no view exists by view " + header.view + " in " + itsSchema.$id);
-                //return null;
-            }
-        } else if (parentView && parentView.viewId) {
-            view = itsSchema.$$views.find( (v) => {
-                return ((v.viewId === parentView.viewId /*|| (v.view && v.view.indexOf(parentView.view) > -1)*/ ) && !v.disable)             });
-            /*if (view == null) {
-                // throw new Exception("no view exists by view " + header.view + " in " + itsSchema.$id);
-                console.log("no view exists by view " + parentView.viewId + " in " + itsSchema.$id);
-                return null;
-            }*/
-        }
+    } else {*/
+    if (header && header.view && itsSchema.$$views) {
+        view = itsSchema.$$views.find( (v) => (v.viewId === header.view || !v.hasOwnProperty('viewId') || v.default) && !v.disable  ) ;
+        /*if (view == null) {
+            // throw new Exception("no view exists by view " + header.view + " in " + itsSchema.$id);
+            logger.trace("no view exists by view " + header.view + " in " + itsSchema.$id);
+            return null;
+        }*/
+        return view;
+    } else if (parentView && parentView.viewId) {
+        view = itsSchema.$$views?.find( (v) => {
+            return ((v.viewId === parentView.viewId /*|| (v.view && v.view.indexOf(parentView.view) > -1)*/ ) && !v.disable)             });
+        /*if (view == null) {
+            // throw new Exception("no view exists by view " + header.view + " in " + itsSchema.$id);
+            console.log("no view exists by view " + parentView.viewId + " in " + itsSchema.$id);
+            return null;
+        }*/
+    }
+    if (view == null && itsSchema.$$views) {
+        view = itsSchema.$$views.find( (v) => v.default);
         if (view == null) {
-            view = itsSchema.$$views.find( (v) => v.default);
-            if (view == null) {
-                view = itsSchema.$$views[0];
-            }
+            view = itsSchema.$$views[0];
         }
     }
+    // }
     return view;
 }
 
-async function getBox(propData, propSchema, pview, key, parentView, parentKey, schema, nl_engine, env) {
+async function getBox(propData, propSchema, pview, key, parentView, parentKey, schema, nl_engine, env, packet) {
     // console.log('getBox for '+key+'/'+parentKey+'/'+propData)
     let newBox = {
         $tag: "input",
         // id: key,
         name: key,
         ssid: parentKey + "." + key,
+        type: propSchema.type,
         sstype: propSchema.type,
         value: propData,
         placeholder: propSchema.title || key,
@@ -124,15 +128,20 @@ async function getBox(propData, propSchema, pview, key, parentView, parentKey, s
 
     if (/*propData && */(propSchema.$$rel)) {
         // typeahead = true;
-        const rel = propSchema.$$rel;
+        let rel = propSchema.$$rel;
+        // console.log(rel, propSchema, packet)
+        rel = ST.select({schema: propSchema, data: packet, env: env}).transformWith(rel).root();
         //post packet to server and replace response in destination_id
         const relCommand = {
-            "$$header": {
-                "action": "R",
-                "sort": rel.return,
-                "cache": rel.cache
+            $$header: {
+                action: "R",
+                sort: {[rel.return]:1},
+                cache: rel.cache,
+                fields: [rel.key].concat(rel.return).concat(rel.extravals),
+                filter: rel.filter,
+                // debug: true
             },
-            "$$schema": rel.schema
+            $$schema: rel.schema
         };
 
         /*newPacket.$$header.filter = {
@@ -172,6 +181,10 @@ async function getBox(propData, propSchema, pview, key, parentView, parentKey, s
 
                         option[exval] = val[exval]+'';
                     }
+                }
+                // console.log('selected',val[rel.key || '$$objid'] == propData, val[rel.key || '$$objid'] , propData)
+                if(val[rel.key || '$$objid'] == propData) { // important == is ok not ===
+                    option.selected = true;
                 }
                 newBox.$html.push(option);
             }
@@ -229,12 +242,12 @@ async function getBox(propData, propSchema, pview, key, parentView, parentKey, s
         newBox.autocomplete = "off";
     }
 
-    if (propSchema.minValue) {
-        newBox['min'] = propSchema.minValue;
+    if (propSchema.hasOwnProperty('minimum')) {
+        newBox['min'] = propSchema.minimum;
     }
 
-    if (propSchema.maxValue) {
-        newBox.max = propSchema.maxValue;
+    if (propSchema.hasOwnProperty('maximum')) {
+        newBox.max = propSchema.maximum;
     }
 
     if (propSchema.minLength) {
@@ -316,6 +329,19 @@ async function getBox(propData, propSchema, pview, key, parentView, parentKey, s
         if (propSchema.max)
             newBox['data-jdp-min-date'] = propSchema.max;
         // var pd = $('#flightdate').persianDatepicker().hide();
+        try {
+            if(propData) {
+                let value = jmoment.from(propData, 'en').format('YYYY/MM/DD');
+                // console.log('jdate', propData, value)
+                newBox.value = value;
+            } else {
+                newBox.value = '';
+            }
+        } catch (e) {
+            //todo
+            console.error(e);
+            newBox.value = '';
+        }
     }
 
     if (propSchema.type === 'boolean') {
@@ -327,7 +353,7 @@ async function getBox(propData, propSchema, pview, key, parentView, parentKey, s
 
     if (propSchema.type === 'text') {
         newBox.$tag = "textarea";
-        newBox.text = propData;
+        newBox.$text = propData;
     }
 
     if (propSchema.required) {
@@ -337,25 +363,46 @@ async function getBox(propData, propSchema, pview, key, parentView, parentKey, s
     if (propSchema.$$enum || propSchema.enum) {
         newBox.$tag = "select";
         newBox.$html = [];
-        let len = propSchema.$$enum?.length || propSchema.enum?.length;
+
         newBox.$html.push({
             $tag: "option",
             value: "",
             $html: "انتخاب کنید"
         })
-        for (let i = 0; i < len; i++) {
-            newBox.$html.push({
-                $tag: "option",
-                value: propSchema.enum ? propSchema.enum[i] : i,
-                $html: propSchema.$$enum ? propSchema.$$enum[i] : propSchema.enum[i]
-            })
+        if(propSchema.$$enum && typeof propSchema.$$enum === 'object') {
+            for (let k in propSchema.$$enum) {
+                let option = {
+                    $tag: "option",
+                    value: k,
+                    $html: propSchema.$$enum[k]
+                };
+                // noinspection EqualityComparisonWithCoercionJS needs == not ===
+                if (k == propData) {
+                    option.selected = 'selected';
+                }
+                newBox.$html.push(option)
+            }
+        } else {
+            let len = propSchema.$$enum?.length || propSchema.enum?.length;
+            for (let i = 0; i < len; i++) {
+                let option = {
+                    $tag: "option",
+                    value: propSchema.enum ? propSchema.enum[i] : i,
+                    $html: propSchema.$$enum ? propSchema.$$enum[i] : propSchema.enum[i],
+                };
+                // noinspection EqualityComparisonWithCoercionJS needs == not ===
+                if ((propSchema.enum ? propSchema.enum[i] : i) == propData) {
+                    option.selected = 'selected';
+                }
+                newBox.$html.push(option)
+            }
         }
     }
 
-    if (pview && pview.template && pview.template.inputTemplate) {
+    if (pview && pview.template && pview.template?.inputTemplate) {
         let tempCells = pview.template.inputTemplate;
 
-        tempCells = ST.select({schema: propSchema, data: propData}).transformWith(tempCells).root();
+        tempCells = ST.select({schema: propSchema, data: propData, env: env}).transformWith(tempCells).root();
 
         for (let vi in tempCells) {
             // arrCell[vi] = tempCells[vi];
@@ -399,8 +446,8 @@ async function getBox(propData, propSchema, pview, key, parentView, parentKey, s
     return newBox;
 }
 
-function makeReady(tempCells, schema, packet, parentCell) {
-    tempCells = ST.select({schema: schema, data: packet}).transformWith(tempCells).root();
+function makeReady(tempCells, schema, packet, parentCell, env) {
+    tempCells = ST.select({schema: schema, data: packet, env: env}).transformWith(tempCells).root();
 
     for (let vi in tempCells) {
         parentCell[vi] = tempCells[vi];
@@ -421,11 +468,19 @@ async function pushGrid(schema, data, destination_id, view, key1, parentKey1, nl
     let pages = Math.floor(length/view?.pagesize || 10)+1;
     let fields = [];
     let ths = [];
+    let _cols = 0;
     for(let f in schema.properties) {
         let field = schema.properties[f];
+        if (field.$$hidden) {
+            continue;
+        }
         if(view?.visibleFields) {
             if(view?.visibleFields.indexOf(f)<0) continue;
         }
+        if(view?.hiddenFields) {
+            if(view?.hiddenFields.indexOf(f)>-1) continue;
+        }
+        _cols ++;
         ths.push({
             $tag: 'th',
             $text: field.title || f
@@ -443,14 +498,48 @@ async function pushGrid(schema, data, destination_id, view, key1, parentKey1, nl
             ]
         }
     ];
+    let _rows = 0;
     for(let obj of data) {
-
         let tds = [];
         for(let f of fields) {
-            tds.push({
+            if (f.$$hidden) {
+                continue;
+            }
+            let text = obj[f] || obj[schema.properties[f].title] || '';
+            if(schema.properties[f].$$rel) {
+                console.log('reeeel', obj)
+                text = obj[schema.properties[f].$$rel.alias] || obj[schema.properties[f].$$rel.schema+'_'+schema.properties[f].$$rel.return] || obj[schema.properties[f].title] || obj[f] || ''
+            }
+            if(schema.properties[f].type === 'jdate') {
+                try {
+                    let value = jmoment.from(obj[f], 'en').format('YYYY/MM/DD');
+                    text = value || '';
+                } catch (e) {
+                    // console.log(e)
+                }
+            }
+            if(schema.properties[f].$$enum) {
+                text = schema.properties[f].$$enum[obj[f]];
+            }
+            let td = {
                 $tag: 'td',
-                $text: obj[f] || ''
-            })
+                $text: text
+            };
+
+            let pview = getView(schema.properties[f], {view: view?.viewId}, view);
+
+            if (pview && pview.template?.valueTemplate) {
+                cells = pview.template.valueTemplate;
+                cells = ST.select({schema: schema.properties[f], data: text, parent: data, env: env}).transformWith(cells).root();
+                for (var vi in cells) {
+                    setCells(td, vi, cells);
+                }
+                if(td.$html) {
+                    delete td.$text;
+                }
+            }
+
+            tds.push(td)
         }
         let tr = {
             $tag: 'tr',
@@ -458,34 +547,61 @@ async function pushGrid(schema, data, destination_id, view, key1, parentKey1, nl
         };
         if(view.click) {
             let click = ST.select({schema: schema, data: obj, env: env}).transformWith(view.click).root();
-            console.log('ssssssssssssss', obj, view.click)
             tr.onclick = "nolang.runScript(JSON.parse(atob('"+Buffer.from(JSON.stringify(click)).toString('base64')+"')), '')"
         }
-        rows.push(tr)
+        rows.push(tr);
+        _rows ++;
+    }
+    if (_rows === 0) {
+        rows.push({
+            $tag: 'td',
+            colspan: _cols,
+            $html: 'گزینه ای یافت نشد'
+        })
     }
     let footer = null;
-    let id = 'selector' + Math.floor(Math.random() * 10000000);
-    footer = {
+    let buttons = [];
+    if(view.pagesize) {
+        let id = 'selector' + Math.floor(Math.random() * 10000000);
+        buttons = buttons.concat([
+            {
+                $tag: 'button',
+                $text: 'صفحه قبل',
+                onclick: `nolang.go2page('${schema.$id}', '${view.viewId}', '${view.pagesize}', 'PREV', '$$target', '${id}', ${length})`
+            },
+            {
+                $tag: 'span',
+                id: id,
+                $text: '$$page/' + pages
+            },
+            {
+                $tag: 'button',
+                $text: 'صفحه بعد',
+                onclick: `nolang.go2page('${schema.$id}', '${view.viewId}', '${view.pagesize}', 'NEXT', '$$target', '${id}', ${length})`
+            }
+        ]);
+    }
+    if(view.actions?.length > 0) {
+        let $html = [];
+        renderActions(view, schema, data, env, $html, nl_engine, schema.$id);
+        buttons = buttons.concat($html);
+    }
+    /*if(view.search) {
+        buttons = buttons.concat([
+            {
+                $tag: 'button',
+                $text: 'جستجو',
+                onclick: `nolang.go2search()`
+            }
+        ])
+    }*/
+    if(buttons.length>0) {
+        footer = {
             $tag: 'footer',
             class: 'text-center',
-            $html: [
-                {
-                    $tag: 'button',
-                    $text: 'صفحه قبل',
-                    onclick: `nolang.go2page('${schema.$id}', '${view.viewId}', '${view.pagesize}', 'PREV', '$$target', '${id}', ${length})`
-                },
-                {
-                    $tag: 'span',
-                    id: id,
-                    $text: '$$page/'+pages
-                },
-                {
-                    $tag: 'button',
-                    $text: 'صفحه بعد',
-                    onclick: `nolang.go2page('${schema.$id}', '${view.viewId}', '${view.pagesize}', 'NEXT', '$$target', '${id}', ${length})`
-                }
-            ]
+            $html: buttons
         }
+    }
     return {
         $tag: 'div',
         class: view.template?.listContainerTemplate?.class,
@@ -504,7 +620,44 @@ async function pushGrid(schema, data, destination_id, view, key1, parentKey1, nl
     }
 }
 
-async function pushObject(schema, packet, destination_id, view, key1, parentKey1, nl_engine, env) {
+function renderActions(view, schema, packet, env, $html, nl_engine, schemaId) {
+    for (let {...ac} of view.actions) {
+        if (ac.hasOwnProperty('visible')) {
+            let visible = ac.visible;
+            if(typeof visible === 'string')
+                visible = ST.select({schema: schema, data: packet, env: env}).transformWith(visible).root();
+            if(typeof visible === 'object')
+                visible = jsonLogic.apply(visible, {schema: schema, data: packet, env: env})
+            if(!visible) continue;
+        }
+        if (ac.click && typeof ac.click === 'object') {
+            let click = ST.select({schema: schema, data: packet, env: env}).transformWith(ac.click).root();
+            ac.click = "nolang.runScript(JSON.parse(atob('" + Buffer.from(JSON.stringify(click)).toString('base64') + "')), '');"
+        }
+        if (ac.tab) {
+            ac.click = ac.click + ";nolang.activeMenu(this, '" + ac.tab + "');"
+        }
+        $html.push({
+            $tag: 'button',
+            type: ac.type || 'button',
+            class: ac.class || 'submit',
+            $text: ac.title || 'Submit',
+            'data-target': ac.target,
+            'data-view': ac.view,
+            'data-action': ac.action || 'C',
+            'data-method': ac.method,
+            'data-id': schema.$$storage?.id || nl_engine?.conf?.storage?.id || '$$objid',
+            'data-id-value': packet ? packet[schema.$$storage?.id || nl_engine?.conf?.storage?.id || '$$objid'] : null,
+            'data-submit-message': ac.message || 'آیا از ارسال اطمینان دارید؟',
+            'data-schema': ac.schema || schemaId,
+            onclick: ac.click
+        });
+    }
+}
+
+async function pushObject(schema, packet, destination_id, view1, key1, parentKey1, nl_engine, env) {
+    let view = {...view1};
+    // view =  ST.select({schema: schema, data: packet, env: env}).transformWith(view).root();
 
     // const deepEach = require('deepeach');
 
@@ -559,7 +712,7 @@ async function pushObject(schema, packet, destination_id, view, key1, parentKey1
                 let tempCells = view.template;
 
                 if (tempCells.listContainerTemplate) {
-                    tempCells = makeReady(tempCells.listContainerTemplate, schema, packet, parentCell);
+                    tempCells = makeReady(tempCells.listContainerTemplate, schema, packet, parentCell, env);
 
                 }
 
@@ -600,6 +753,24 @@ async function pushObject(schema, packet, destination_id, view, key1, parentKey1
         parenttag = "form";
     if (view?.grid)
         parenttag = "tr";
+    if(view?.$$rules) {
+        for(let {...rule} of view.$$rules) {
+            if(rule.condition && rule.set) {
+                //not jsonLogic
+                let conditionIsOK = true;
+                for(let k in rule.condition) {
+                    // noinspection EqualityComparisonWithCoercionJS
+                    if(packet[k] != rule.condition[k]) {
+                        conditionIsOK = false;
+                        break;
+                    }
+                }
+                if(conditionIsOK) {
+                    Object.assign(view, rule.set)
+                }
+            }
+        }
+    }
 
     const schemaId = schema.$id;
 
@@ -613,8 +784,8 @@ async function pushObject(schema, packet, destination_id, view, key1, parentKey1
     let _class = null;//= ssSchemaId;
     if (view?.itemContainer)
         _class = _class + " ssItemContainerParent";
-    if (destination_id && $('#' + destination_id).length)
-        _class += ' ' + $('#' + destination_id).attr('class');
+    /*if (destination_id && $('#' + destination_id).length)
+        _class += ' ' + $('#' + destination_id).attr('class');*/
     let parentCell = {$tag: parenttag, $html: []};
     if (_class)
         parentCell.class = _class
@@ -623,7 +794,7 @@ async function pushObject(schema, packet, destination_id, view, key1, parentKey1
         parentCell.id = destination_id;
     //set view template of current object
     if (view?.template) {
-        var tempCells = view.template;
+        var tempCells = {...view.template};
 
         if (tempCells.objectTemplate) {
             tempCells = tempCells.objectTemplate;
@@ -689,36 +860,53 @@ async function pushObject(schema, packet, destination_id, view, key1, parentKey1
     }
 
     //actions:
-    // setActions(view, schema, packet, ssSchemaId, key1, parentCell);
-
-    if(view?.template?.footerTemplate){
-        let footer = makeReady(view.template.footerTemplate, schema, packet, {});
-        parentCell.$html.push(footer);
+    if(view.actions?.length > 0) {
+        let $html = [];
+        renderActions(view, schema, packet, env, $html, nl_engine, schemaId);
+        $html.push({
+            $tag: 'div',
+            class: 'response'
+        });
+        parentCell.$html.push({
+            $tag: 'footer',
+            $html: $html
+        });
     } else if (view?.editable) {
         parentCell.$html.push({
             $tag: 'footer',
             $html:[{
                 $tag: 'button',
-                $text: view?.submitTitle || 'Submit',
-                'data-action': view?.submitAction || 'C',
-                'data-submit-message': view?.submitMessage || 'آیا از ارسال اطمینان دارید؟',
+                type: 'button',
+                class: 'submit',
+                $text: 'ارسال',
+                'data-action': 'C',
+                'data-submit-message': 'آیا از ارسال اطمینان دارید؟',
                 'data-schema': schemaId
             }]
         });
+    }
+
+    //footer
+    if(view.template?.footerTemplate){
+        let footer = makeReady(view.template.footerTemplate, schema, packet, {}, env);
+        parentCell.$html.push(footer);
     }
 
     return parentCell;
 }
 
 async function pushOne(propSchema, propData, parentCell, packet, key, parentView, parentKey, schema, postedpacket, nl_engine, env) {
+
+    propData = ST.select({schema: propSchema, data: packet, env: env}).transformWith(propData).root();
+
     //debug
     if (propSchema.debug) {
-        console.debug(propData);
+        console.debug('pushOne(',key,propSchema, propData);
     }
 
     const editable = (parentView && parentView.editable && (parentView.editable == true || parentView.editable.indexOf(key) > -1)) || (packet && packet.$$header && packet.$$header.action == 'W');
 
-    if (propData && propSchema.$$rel && editable /*propSchema.type == "userid" || propSchema.type == "objectid"*/) {
+    /*if (propData && propSchema.$$rel && editable /!*propSchema.type == "userid" || propSchema.type == "objectid"*!/) {
         let destination_id = "container_" + key + "_" + Math.random().toString(36).substring(7) + "_inner";
 
         var pview = getView(propSchema, packet ? packet.$$header : null, parentView);
@@ -791,9 +979,12 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
                 newPacket.$$header.view = rel.view;
             }
 
-            $$VM.postPacket(newPacket, function (postedpacket) {
+            let _packet = await nl_engine.dataPacket(newPacket, schema, env)
+            console.log('$$rel', _packet, innerCell)
+            innerCell = _packet[0];
+            /!*$$VM.postPacket(newPacket, function (postedpacket) {
                 $$VM.renderView(postedpacket, destination_id)
-            });
+            });*!/
 
         } else {
             innerCell = await pushObject(propSchema, propData, destination_id, pview, key, parentKey, nl_engine, env)
@@ -802,14 +993,15 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
 
         parentCell.$html.push(innerCell);
     }
-    else if (propSchema.type === "object") {
+    else*/
+    if (propSchema.type === "object") {
         let object_id = "container_" + key + "_" + Math.random().toString(36).substring(7);
 
         if (typeof propData == 'string')
             propData = JSON.parse(propData);
 
 
-        let pview = getView(propSchema, packet ? packet.$$header : null, parentView);
+        let pview = getView(propSchema, packet ? packet.$$header : view ? {view: view.viewId} : null, parentView);
 
 
         //if hidden in view
@@ -818,7 +1010,7 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
 
 
         //setting id of DOM
-        if (pview && pview.template.id) {
+        if (pview && pview.template?.id) {
             // newObject.id = pview.template.id;
             object_id = pview.template.id;
         }
@@ -880,7 +1072,10 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
                         delete obj[k];
                     }
                 });*/
-                let _packet = await nl_engine.dataPacket(propData, _schema, env)
+                let _propData = {...propData};
+                console.error(this.currentuser)
+                _propData.$$header.user = packet.$$header?.user;// {token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlcyI6WyJBRE1JTiJdLCJpYXQiOjE3MTM2ODYyNjAsImV4cCI6MTcxMzc1ODI2MH0.IW5bDgjJTXxWckcGB2Y3vVcagLYmwzw7nVbLA_cKdrY'}
+                let _packet = await nl_engine.dataPacket(_propData, _schema, env)
                 let pview = getView(_schema, propData.$$header , parentView);
                 let innerCell1 = await pushObject(_schema, _packet, null, pview, null, null, nl_engine, env);
                 innerCell.$html=[innerCell1];
@@ -974,7 +1169,7 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
         const hview = getView(propSchema.items, packet ? packet.$$header : null, parentView);
         if (hview && hview.template) {
             var cells = hview.template;
-            cells = ST.select(propData).transformWith(cells).root();
+            cells = ST.select({schema: propSchema, data: propData, parent: packet, env: env}).transformWith(cells).root();
             if (hview.template.keyTemplate) {
                 cells = cells.keyTemplate;
                 cells = ST.select({schema: propSchema, data: propData, parent: packet, env: env}).transformWith(cells).root();
@@ -1092,9 +1287,11 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
 
         parentCell.$html.push(arrCell);
 
-    } else if (propSchema.type === "jsondom") {
+    }
+    else if (propSchema.type === "jsondom") {
         parentCell.$html = parentCell.$html.concat(propData);
-    } else {
+    }
+    else {
 
         //for key values
 
@@ -1107,11 +1304,11 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
         const newValue = {
             $tag: "dd",
             sstype: propSchema.type,
-            $html: propData,
+            $text: propData,
             class: "ss_" + key
         };
 
-        var pview = getView(propSchema, packet ? packet.$$header : null, parentView);
+        var pview = getView(propSchema, packet?.$$header || parentView?{view:parentView.viewId}:null , parentView);
 
         if (!pview) {
             if (parentView && parentView.template && parentView.template.itemsTemplate) {
@@ -1125,10 +1322,41 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
 
         //if(parentView && parentView.editable && ( parentView.editable == true || parentView.editable.indexOf(key) > -1) ){
         if (editable) {
-            const newBox = await getBox(propData, propSchema, pview, key, parentView, parentKey, schema, nl_engine, env);
+            const newBox = await getBox(propData, propSchema, pview, key, parentView, parentKey, schema, nl_engine, env, packet);
 
+            if(!newBox.id) {
+                let randomid = Math.random();
+                newKey.for = randomid;
+                newBox.id = randomid;
+            } else {
+                newKey.for = newBox.id;
+            }
+
+            newKey.$tag = "label";
             newValue.$text = "";
             newValue.$html = [newBox];
+        } else {
+            if(propSchema.$$rel) {
+                try {
+                    newValue.$text = packet[key+'_'] || packet[propSchema.title] || packet[propSchema.$$rel.schema+'_'+propSchema.$$rel.return];
+                } catch (e) {
+                    console.log(e)
+                }
+            }
+
+            if(propSchema.type === 'jdate') {
+                try {
+                    let value = jmoment.from(propData, 'en').format('YYYY/MM/DD');
+                    propData = value || '';
+                    newValue.$text = propData;
+                } catch (e) {
+                    // console.log(e)
+                }
+            }
+
+            if(propSchema.$$enum) {
+                newValue.$text = propSchema.$$enum[propData]
+            }
         }
 
 
@@ -1145,39 +1373,52 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
                  *
                  */
                 var cells = pview.template;
-                cells = ST.select(propData).transformWith(cells).root();
-                if (pview.template.keyTemplate) {
+                cells = ST.select({schema: propSchema, data: propData, parent: packet, env: env}).transformWith(cells).root();
+                if (pview.template?.keyTemplate) {
                     cells = cells.keyTemplate;
                     cells = ST.select({schema: propSchema, data: propData, parent: packet, env: env}).transformWith(cells).root();
                     //render template.keyTemplate for key view
                     for (var vi in cells) {
-                        var valx = cells[vi];
+                        //var valx = cells[vi];
                         // newKey[vi] = valx;
                         setCells(newKey, vi, cells);
                     }
                 }
 
-                if (pview.template.valueTemplate) {
-                    const valueTemp = {};
+                if (pview.template?.valueTemplate) {
+                    /*const valueTemp = {};
                     if (!pview.template.$html)
                         newValue.$html = [];
-                    newValue.$html.push(valueTemp);
+
 
 
                     cells = pview.template.valueTemplate;
                     cells = ST.select({schema: propSchema, data: propData, parent: packet, env: env}).transformWith(cells).root();
                     //render template.valueTemplate for value view
                     for (var vi in cells) {
-                        var valx = cells[vi];
+                        // var valx = cells[vi];
 
-                        valueTemp[vi] = valx;
+                        // valueTemp[vi] = valx;
+                        setCells(valueTemp, vi, cells);
                     }
-                } else if (!pview.template.keyTemplate) {
+                    newValue.$html.push(valueTemp);*/
+
+                    cells = pview.template.valueTemplate;
+                    cells = ST.select({schema: propSchema, data: propData, parent: packet, env: env}).transformWith(cells).root();
+                    //render template.valueTemplate for value view
+                    for (var vi in cells) {
+                        // var valx = cells[vi];
+
+                        // valueTemp[vi] = valx;
+                        setCells(newValue, vi, cells);
+                    }
+                } else if (!pview.template?.keyTemplate) {
                     //render template for value view
                     for (var vi in cells) {
-                        var valx = cells[vi];
+                        // var valx = cells[vi];
 
-                        newValue[vi] = valx;
+                        // newValue[vi] = valx;
+                        setCells(newValue, vi, cells);
                     }
                 }
 
@@ -1208,7 +1449,7 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
                 "$html": [newKey, newValue]
             };
             let cells = {...pview?.template?.objectTemplate};
-            cells = ST.select(propData).transformWith(cells).root();
+            cells = ST.select({schema: propSchema, data: propData, parent: packet, env: env}).transformWith(cells).root();
             for (var vi in cells) {
                 // var valx = cells[vi];
                 // newKey[vi] = valx;
@@ -1405,7 +1646,8 @@ const _ = require('lodash');*/
 module.exports = async function (schema, view, data, nl_engine, env) {
     //todo
     if(typeof data === 'object' && data.success === false) {
-        return "<br><h3 align='center' style='color: red'>You have not Permission!</h3>"
+        return "<br><h3 align='center' style='color: red'>"+data.error+"</h3>"
+        // +"<meta http-equiv='refresh' content='5; url=/login' />"
     }
     /*let _schema = {...schema};
 
