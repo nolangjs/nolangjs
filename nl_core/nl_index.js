@@ -1303,18 +1303,22 @@ class nlCompiler {
                 //calculate
                 if (objk.$$calc) {
                     if (typeof objk.$$calc === 'object') {
-                        obj[k] = jsonLogic.apply(objk.$$calc, env);
+                        if (objk.$$calc.$$header) {
+                            let x = await thes.runPacket(objk.$$calc, null, env);
+                            obj[k] = x;
+                        } else
+                            obj[k] = jsonLogic.apply(objk.$$calc, env);
                         logger.debug('$$ debug', objk, env)
                     } else if (typeof objk.$$calc === 'string') {
                         obj[k] = jsonLogic.apply({var: objk.$$calc}, env);
                         logger.debug('$$ debug var', objk.$$calc, env)
                     }
-                } else
+                }/* else
                     //nested request
                 if (objk.$$header && !["then","else"].includes(k)) {
                     let x = await thes.runPacket(objk, null, env);
                     obj[k] = x;
-                }
+                }*/
                 //}
             });
         }
