@@ -1161,7 +1161,11 @@ class nlCompiler {
             data_message = await _ssCompiler.dataPacket(_packet, schema, _env);
 
             if(header?.hasOwnProperty('path')) {
-                data_message = JSONPath(header.path, data_message);
+                try {
+                    data_message = JSONPath(header.path, data_message);
+                } catch(e) {
+                    logger.error(e);
+                }
             }
 
             if(header?.hasOwnProperty('get') && Array.isArray(data_message)) {
@@ -1173,9 +1177,15 @@ class nlCompiler {
                 header.then = ST.select({ script: req_packet, [req_packet.$$schema] : Array.isArray(data_message)?data_message[0]:data_message}).transformWith(header.then).root();
                 if (header.then.$$header) {
                     return _ssCompiler.runPacket(header.then, null, _env);
-                } else if(header.then.$$set) {
+                }
+                if(header.then.$$set) {
                     for(let key in header.then.$$set) {
                         data_message[key] = header.then.$$set[key];
+                    }
+                }
+                if(header.then.$$remove) {
+                    for(let key of header.then.$$remove) {
+                        delete data_message[key];
                     }
                 }
             }
