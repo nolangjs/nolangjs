@@ -50,6 +50,7 @@ module.exports = class file_schema_loader extends schema_loader{
                     delete require.cache[path.resolve(fileName)];
                     try {
                         let schema = require(path.resolve(fileName));
+                        schema.filepath = fileName;
                         //trigger onLoad , force to replace current loaded schema
                         thes.onLoad(schema, fileName, true);
                     } catch (e) {
