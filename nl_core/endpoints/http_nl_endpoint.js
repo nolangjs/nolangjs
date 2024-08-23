@@ -144,117 +144,146 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
             }*/
             //create a handler method bounded to "app" with path "route.path"
             //which runs nl_endpoint_method , by command "route.return" or "req.body"
-            app[method].bind(app)(route.path, [_cors, express[bp](opt)] , (req, res)=>{
-                let command = route.return || req.body;
-                if(req.files && req.body.command) {
-                    command = JSON.parse(req.body.command);
-                    for (let fileKey of Object.keys(req.files) ) {
-                        let file = req.files[fileKey];
-                        if (this.conf.upload.maxSize) {
-                            if(this.conf.upload.maxSize<file.size){
-                                res.status(500).json({success: false, message: 'big file'});
-                                return;
-                            }
+            {
+                let handler;
+                if(route.middleware) {
+                    try {
+                        //todo need to cache
+                        let middlewarePath = route.middleware;
+                        if(!path.isAbsolute(route.middleware)) {
+                            middlewarePath = path.join(global.appPath, route.middleware);
                         }
-                        let fileExt = path.extname(file.name);
-                        if(!fileExt || fileExt === '') {
-                            fileExt = '.' + require('mime').extension(file.mimetype);
+                        if(!fs.existsSync(middlewarePath)){
+                            logger.error({message: 'middleware '+route.middleware+', path not exists! '+middlewarePath});
                         }
-                        command[fileKey] = {
-                            fileName: file.name,
-                            size: file.size,
-                            ext: fileExt
-                        }
+                        let methodMiddleware = require(middlewarePath);
+                        let thisObj = {
+                            endpoint: (req_packet, listener, env)=>thes.nl_endpoint_method(req_packet, listener, env),
+                        };
+                        handler = methodMiddleware.bind(thisObj)
+                    } catch (e){
+                        return {success: false, message: e.message};
                     }
-                }
-                let listener = {};
-                let _env = {
-                    request: {
-                        params: req.params,
-                        body: req.body,
-                        query: req.query,
-                        url: req.url,
-                        headers: req.headers,
-                        cookies: req.cookies,
-                        signedCookies: req.signedCookies,
-                        z: Math.random()
-                    }
-                };
-                let _req = {
-                    data: command,
-                    env: _env
-                }
-                const ST = require('stjs');
-                command = ST.select(_req).transformWith(command).root();
-                //check is listener for SSE
-                if(command?.$$header?.listen) {
-                    res.set({
-                        'Cache-Control': 'no-cache',
-                        'Content-Type': 'text/event-stream',
-                        'Connection': 'keep-alive'
-                    });
-                    res.flushHeaders();
-                    // Tell the client to retry every 10 seconds if connectivity is lost
-                    // res.write('retry: 10000\n\n');
-                    listener = {
-                        handler: (response) => {
-                            res.write(`data: ${JSON.stringify(response)}\n\n`);
-                        }
-                    }
-
-                    res.on('close', ()=>{
-                        //delete listener handler
-                        listener.handler = null;
-                    })
-                    thes.nl_endpoint_method(command, listener, _env).then(response=>{
-                        //res.json(response);
-                        res.write(`retry: 10000\n\ndata: ${JSON.stringify(response)}\n\n`);
-                    })
-                    return;//ignore rest of handler
-                }
-
-                thes.nl_endpoint_method(command, listener, _env).then(response=>{
-                    //check upload files
-                    if(req.files){
-                        try {
+                } else {
+                    handler = (req, res)=>{
+                        let command = route.return || req.body;
+                        if(req.files && req.body.command) {
+                            command = JSON.parse(req.body.command);
                             for (let fileKey of Object.keys(req.files) ) {
                                 let file = req.files[fileKey];
+                                if (this.conf.upload.maxSize) {
+                                    if(this.conf.upload.maxSize<file.size){
+                                        res.status(500).json({success: false, message: 'big file'});
+                                        return;
+                                    }
+                                }
                                 let fileExt = path.extname(file.name);
                                 if(!fileExt || fileExt === '') {
                                     fileExt = '.' + require('mime').extension(file.mimetype);
                                 }
-                                try {
-                                    let filePath = path.join(uploadRoot, command.$$schema, response?.$$objid+'');
-                                    if(!fs.existsSync(filePath))
-                                        fs.mkdirSync(filePath, {recursive: true});
-                                    file.mv(filePath+'/'+fileKey+fileExt, (err)=>{
-                                        // if (err)
-                                        // return res.status(500).send(err);
-                                        ;
-                                    })
-                                } catch (e) {
-                                    logger.error('file could not be saved!', e.message)
+                                command[fileKey] = {
+                                    fileName: file.name,
+                                    size: file.size,
+                                    ext: fileExt
                                 }
                             }
-                        } catch (e) {
-                            logger.error(e)
                         }
-
-                    }
-
-                    //cookies
-                    if(route.type === 'json') {//todo, how to set cookies for non json types
-                        if(response?.cookie) {
-                            for(let [name,value] of Object.entries(response.cookie.vals)) {
-                                res.cookie(name, value, response.cookie.options );
+                        let listener = {};
+                        let _env = {
+                            request: {
+                                params: req.params,
+                                body: req.body,
+                                query: req.query,
+                                url: req.url,
+                                headers: req.headers,
+                                cookies: req.cookies,
+                                signedCookies: req.signedCookies,
+                                z: Math.random()
                             }
+                        };
+                        let _req = {
+                            data: command,
+                            env: _env
                         }
-                    }
+                        const ST = require('stjs');
+                        command = ST.select(_req).transformWith(command).root();
+                        //check is listener for SSE
+                        if(command?.$$header?.listen) {
+                            res.set({
+                                'Cache-Control': 'no-cache',
+                                'Content-Type': 'text/event-stream',
+                                'Connection': 'keep-alive'
+                            });
+                            res.flushHeaders();
+                            // Tell the client to retry every 10 seconds if connectivity is lost
+                            // res.write('retry: 10000\n\n');
+                            listener = {
+                                handler: (response) => {
+                                    res.write(`data: ${JSON.stringify(response)}\n\n`);
+                                }
+                            }
 
-                    res.type(route.type || 'json');
-                    res.send(response);
-                })
-            })
+                            res.on('close', ()=>{
+                                //delete listener handler
+                                listener.handler = null;
+                            })
+                            thes.nl_endpoint_method(command, listener, _env).then(response=>{
+                                //res.json(response);
+                                res.write(`retry: 10000\n\ndata: ${JSON.stringify(response)}\n\n`);
+                            })
+                            return;//ignore rest of handler
+                        }
+
+                        thes.nl_endpoint_method(command, listener, _env).then(response=>{
+                            //check upload files
+                            if(req.files){
+                                try {
+                                    for (let fileKey of Object.keys(req.files) ) {
+                                        let file = req.files[fileKey];
+                                        let fileExt = path.extname(file.name);
+                                        if(!fileExt || fileExt === '') {
+                                            fileExt = '.' + require('mime').extension(file.mimetype);
+                                        }
+                                        try {
+                                            let filePath = path.join(uploadRoot, command.$$schema, response?.$$objid+'');
+                                            if(!fs.existsSync(filePath))
+                                                fs.mkdirSync(filePath, {recursive: true});
+                                            file.mv(filePath+'/'+fileKey+fileExt, (err)=>{
+                                                // if (err)
+                                                // return res.status(500).send(err);
+                                                ;
+                                            })
+                                        } catch (e) {
+                                            logger.error('file could not be saved!', e.message)
+                                        }
+                                    }
+                                } catch (e) {
+                                    logger.error(e)
+                                }
+
+                            }
+
+                            //cookies
+                            if(route.type === 'json') {//todo, how to set cookies for non json types
+                                if(response?.cookie) {
+                                    for(let [name,value] of Object.entries(response.cookie.vals)) {
+                                        res.cookie(name, value, response.cookie.options );
+                                    }
+                                }
+                            }
+
+                            if(response?.redirect) {
+                                res.redirect(response.redirect)
+                            } else {
+                                res.type(route.type || 'json');
+                                res.send(response);
+                            }
+                        })
+                    }
+                }
+                app[method].bind(app)(route.path, [_cors, express[bp](opt)] , handler)
+            }
+            logger.info('http   '+ (route.type==='undefined'?'':route.type||'').padEnd(7) + route.method.padEnd(6)  + route.path )
         }
 
         let doListen = ()=>{
