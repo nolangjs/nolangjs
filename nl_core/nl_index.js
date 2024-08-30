@@ -1311,7 +1311,7 @@ class nlCompiler {
                 //do $$ handler
                 //if(typeof objk === 'object'){
                 //calculate
-                if (objk.$$calc) {
+                if (objk?.$$calc) {
                     if (typeof objk.$$calc === 'object') {
                         /*if (objk.$$calc.$$header) {
                             let x = await thes.runPacket(objk.$$calc, null, env);
@@ -1325,7 +1325,7 @@ class nlCompiler {
                     }
                 } else
                     //nested request
-                if (objk.$$header && !["then","else","$$data"].includes(k) && !objk.$$header.ignore) {
+                if (objk?.$$header && !["then","else","$$data"].includes(k) && !objk?.$$header.ignore) {
                     let _result = await thes.runPacket(objk, null, env);
                     obj[k] = _result;
                 }
@@ -1573,13 +1573,16 @@ class nlCompiler {
                     if(checkResult.token) {
                         return {
                             success: true,
-                            token: checkResult.token
+                            token: checkResult.token,
+                            message: 'Save this token and use it in next requests.$$header.user.token'
                         };
                     }
-                    if(checkResult.cookie) {
+                    if(checkResult.cookies) {
                         return {
                             success: true,
-                            cookie: checkResult.cookie
+                            $$res: {
+                                cookies: checkResult.cookies
+                            }
                         };
                     }
                     return {

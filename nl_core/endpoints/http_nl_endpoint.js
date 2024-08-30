@@ -49,7 +49,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
         //cors for all
         if(this.conf.cors) {
             const cors = require('cors');
-            app.use(cors(this.conf.cors))
+            app.use(cors(this.conf.cors));
         }
 
         //filter for all
@@ -118,7 +118,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                 }
             }
 
-            if(method === 'ws') {} else
+            if(method === 'ws') {}
                 /*const expressWs = express_ws(app);
 
                 //listen to every web socket connection
@@ -144,7 +144,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
             }*/
             //create a handler method bounded to "app" with path "route.path"
             //which runs nl_endpoint_method , by command "route.return" or "req.body"
-            {
+            else {
                 let handler;
                 if(route.middleware) {
                     try {
@@ -164,7 +164,8 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                     } catch (e){
                         return {success: false, message: e.message};
                     }
-                } else {
+                }
+                else {
                     handler = (req, res)=>{
                         let command = route.return || req.body;
                         if(req.files && req.body.command) {
@@ -191,6 +192,19 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                         let listener = {};
                         let _env = {
                             request: {
+                                baseUrl: req.baseUrl,
+                                originalUrl: req.originalUrl,
+                                path: req.path,
+                                protocol: req.protocol,
+                                secure: req.secure,
+                                fresh: req.fresh,
+                                stale: req.stale,
+                                hostname: req.hostname,
+                                subdomains: req.subdomains,
+                                ip: req.ip,
+                                ips: req.ips,
+                                xhr: req.xhr,
+                                method: req.method,
                                 params: req.params,
                                 body: req.body,
                                 query: req.query,
@@ -198,9 +212,9 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                                 headers: req.headers,
                                 cookies: req.cookies,
                                 signedCookies: req.signedCookies,
-                                z: Math.random()
                             }
                         };
+
                         let _req = {
                             data: command,
                             env: _env
@@ -234,7 +248,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                             return;//ignore rest of handler
                         }
 
-                        thes.nl_endpoint_method(command, listener, _env).then(response=>{
+                        thes.nl_endpoint_method(command, listener, _env).then(nlresponse=>{
                             //check upload files
                             if(req.files){
                                 try {
@@ -245,7 +259,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                                             fileExt = '.' + require('mime').extension(file.mimetype);
                                         }
                                         try {
-                                            let filePath = path.join(uploadRoot, command.$$schema, response?.$$objid+'');
+                                            let filePath = path.join(uploadRoot, command.$$schema, nlresponse?.$$objid+'');
                                             if(!fs.existsSync(filePath))
                                                 fs.mkdirSync(filePath, {recursive: true});
                                             file.mv(filePath+'/'+fileKey+fileExt, (err)=>{
@@ -264,24 +278,109 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                             }
 
                             //cookies
-                            if(route.type === 'json') {//todo, how to set cookies for non json types
-                                if(response?.cookie) {
-                                    for(let [name,value] of Object.entries(response.cookie.vals)) {
-                                        res.cookie(name, value, response.cookie.options );
+                            if(nlresponse?.$$res) {
+                                /*$$res={
+                                    cookies: {
+                                        "cookie1": "value1",
+                                        "cookie2": {
+                                            "value":
+                                                "value2",
+                                            options: {}
+                                        }
+                                    },
+                                    clearCookie: {
+                                        'name': { path: '/admin' },
+                                        'name2': {  }
+                                    },
+                                    headers: {
+                                        'Set-Cookie': 'foo=bar; Path=/; HttpOnly',
+                                        'Link': ['<http://localhost/>', '<http://localhost:3000/>']
+                                    },
+                                    attachment: 'path/to/logo.png',
+                                    download: 'path/to/file.pdf', // or: ['path/to/file.pdf','title.pdf']
+                                    links: {
+                                        next: 'http://api.example.com/users?page=2',
+                                        last: 'http://api.example.com/users?page=5'
+                                    },
+                                    location: 'http://example.com', // or 'back' or '/url/any'
+                                    type: 'jsonp', //or any Content-Type
+                                    vary: 'User-Agent',//Adds the field to the Vary response header, if it is not there already.
+                                    status: 404,
+                                    sendFile: '/absolute/path/to/404.png'
+                                }*/
+
+                                if (nlresponse.$$res.cookies) {
+                                    for (let cookie in nlresponse.$$res.cookies) {
+                                        let options = null;
+                                        let value = nlresponse.$$res.cookies[cookie];
+                                        if (typeof value === 'object') {
+                                            options = value.options;
+                                            value = value.value;
+                                        }
+                                        res.cookie(cookie, value, options);
                                     }
+                                }
+
+                                if (nlresponse.$$res.headers) {
+                                    for (let header in nlresponse.$$res.headers) {
+                                        res.append(header, nlresponse.$$res.headers[header]);
+                                    }
+                                }
+
+                                if (nlresponse.$$res.attachment) {
+                                    res.attachment(nlresponse.$$res.attachment)
+                                }
+
+                                if (nlresponse.$$res.clearCookies) {
+                                    for (let clearCookie in nlresponse.$$res.clearCookies) {
+                                        res.clearCookie(clearCookie, nlresponse.$$res.clearCookies[clearCookie]);
+                                    }
+                                }
+
+                                if (nlresponse.$$res.download) {
+                                    let path = nlresponse.$$res.download;
+                                    let title;
+                                    if (Array.isArray(path)) {
+                                        path = path[0];
+                                        title = path[1]
+                                    }
+                                    res.download(path, title)
+                                }
+
+                                if (nlresponse.$$res.links) {
+                                    res.links(nlresponse.$$res.links)
+                                }
+
+                                if (nlresponse.$$res.location) {
+                                    res.location(nlresponse.$$res.location)
+                                }
+
+                                if (nlresponse.$$res.vary) {
+                                    res.vary(nlresponse.$$res.vary)
+                                }
+
+                                if (nlresponse.$$res.status) {
+                                    res.status(nlresponse.$$res.status)
                                 }
                             }
 
-                            if(response?.redirect) {
-                                res.redirect(response.redirect)
+                            if(nlresponse?.$$res?.redirect) {
+                                res.redirect(nlresponse.$$res.redirect)
+                            } else if (nlresponse?.$$res?.sendFile) {
+                                try {
+                                    res.sendFile(nlresponse.$$res.sendFile);
+                                } catch (err) {
+                                    logger.error(err)
+                                }
                             } else {
-                                res.type(route.type || 'json');
-                                res.send(response);
+                                res.type(route.type || nlresponse?.$$res?.type || 'json');
+                                delete nlresponse.$$res;
+                                res.send(nlresponse);
                             }
                         })
                     }
                 }
-                app[method].bind(app)(route.path, [_cors, express[bp](opt)] , handler)
+                app[method].bind(app)(route.path, [_cors, express[bp](opt)] , handler);
             }
             logger.info('http   '+ (route.type==='undefined'?'':route.type||'').padEnd(7) + route.method.padEnd(6)  + route.path )
         }

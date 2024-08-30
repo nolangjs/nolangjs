@@ -5,7 +5,7 @@ async function checkRolesPermission(roles, packet, env) {
     //TODO return permission messages to user
 
     const header = packet.$$header;
-    let userAction = (header && header.action) ? header.action : '' ;
+    let userAction = header?.action || '' ;
 
     let hasPermission = false;
 
@@ -13,81 +13,38 @@ async function checkRolesPermission(roles, packet, env) {
         success: false
     };
 
-    let userid = null;
-    let userRoles = null;
-    let user = null;
+    let userid;
+    let userRoles;
+    let user;
+    let token;
 
+    //find token in http request cookies
     if(env?.request?.cookies) {
-        let token = null;
         let jwtcookiename = this.conf.user.jwt?.cookie?.name || 'jwt';
-        if(env?.request?.cookies[jwtcookiename]) {
-            token = env.request.cookies[jwtcookiename];
-            try{
-                let decoded = jwt.verify(token, this.conf.user.jwt?.secret);
-                userid = decoded.userid;
-                userRoles = decoded.roles;
-                user = decoded.user;
-
-                if(this.conf.user.token) {
-                    //todo , token table instead of roles in jwt token
-                    //todo , jwt OR token table
-                    let _users = await this.dataPacket({
-                        $$schema: this.conf.user.token.schema,
-                        $$header: {
-                            action: 'R',
-                            filter: {
-                                [this.conf.user.token.tokenField]: _username,
-                                // [this.conf.user.passwordField]: _password
-                            },
-                            cache: {
-                                key: new Buffer( _username+_password).toString('base64'), //fixme encrypt it
-                                time: 100
-                            }
-                        }
-                    }, null, {}, true);
-                    if (_users.length < 1) {
-                        logger.error('No user with this username', _username);
-                        ret.error = 'No user with this username';
-                        return ret;
-                    }
-                    userid = _users[0][this.conf.user.token.useridField];
-                }
-            } catch (err) {
-                ret.error = err;
-                return ret;
-            }
-        }
+        token = env.request.cookies[jwtcookiename];
     }
 
-    if (header.user) {
-        // this.currentUser = header.user;
-        if (header.user.userid)
-            userid = header.user.userid;
+    //find token in headers.authorization
+    if(env?.request?.headers?.authorization) {
+        if(env.request.headers.authorization.split(' ')[1])
+            token = env.request.headers.authorization.split(' ')[1];
+    }
 
-        if (header.user.roles){
-            if(!this.conf.user.directRoles) {
-                ret.error = "No permission to direct roles";
+    //header.user
+    if (header.user) {
+        if (header.user.roles) {
+            if(!this.conf.user?.directRoles) {
+                ret.error = "No permission to use roles in request directly. conf.user.directRoles is false";
                 return ret;
             }
             userRoles = header.user.roles;
-        } else
-            //jwt token
-        if (header.user.token) {
-            try {
-                let decoded = jwt.verify(header.user.token, this.conf.user.jwt?.secret);
-                if (decoded.userid)
-                    userid = decoded.userid;
-                userRoles = decoded.roles;
-                //todo , token table instead of roles in jwt token
-            } catch (err) {
-                ret.error = err;
-                return ret;
-            }
-        } else
-            //if header.user has username and password
-        if (header.user.username) {
+        }
+        else if (header.user.token) {
+            token = header.user.token;
+        }
+        else if (header.user.username) {
             if (header.user.password) {
-                if (this.conf.user.schema) {
+                if (this.conf.user?.schema) {
                     let _username = header.user[this.conf.user.usernameField] || header.user.username || header.user.user;
                     let _password = header.user[this.conf.user.passwordField] || header.user.password || header.user.pass;
                     let _users = await this.dataPacket({
@@ -110,7 +67,6 @@ async function checkRolesPermission(roles, packet, env) {
                         return ret;
                     }
                     let _user = _users[0];
-
                     if (_user[this.conf.user.passwordField] !== _password) {
                         logger.error('No user with this username password', _username);
                         ret.error = 'No user with this username password';
@@ -121,54 +77,112 @@ async function checkRolesPermission(roles, packet, env) {
                     delete user[this.conf.user.passwordField];
                     userRoles = user[this.conf.user.rolesField];
                     if (this.conf.user.jwt) {
-                        // let _user = {...user};
-                        // delete _user[this.conf.user.passwordField];
-                        //todo how to delete other unneeded fields?
+                        //create new token and save in jwt cookie
+                        //todo add config which fields are needed to store in jwt
                         let newToken = {
                             userid: user.$$objid,
                             roles: userRoles,
                             user: user
                         };
-                        let token = jwt.sign(newToken, this.conf.user.jwt.secret, {expiresIn: this.conf.user.jwt.expiresIn});
+                        newToken = jwt.sign(newToken, this.conf.user.jwt.secret, {expiresIn: this.conf.user.jwt.expiresIn});
 
                         if (this.conf.user.jwt.cookie) {
-                            ret.cookie = {
-                                vals: {
-                                    [(this.conf.user.jwt.cookie.name) || 'jwt']: token
-                                },
-                                options: this.conf.user.jwt.cookie.options || {
-                                    httpOnly: true,
-                                    signed: true,
-                                    maxAge: this.conf.user.jwt.expiresIn || 3600*24,
+                            ret.cookies = {
+                                [(this.conf.user.jwt.cookie?.name) || 'jwt'] : {
+                                    value: newToken,
+                                    options: this.conf.user.jwt.cookie?.options || {
+                                        httpOnly: true,
+                                        signed: true,
+                                        maxAge: this.conf.user.jwt.expiresIn || 3600 * 24,
+                                    }
                                 }
                             }
                         } else {
-                            ret.token = token;
+                            ret.token = newToken;
                         }
 
                         return ret;
                     }
                 }
             }
-        } else
-        if (header.user.userid) {
-            if (!userRoles) {
-                //TODO
+        }
+        else if (header.user.userid) {
+            if(!this.conf.user?.directUserId) {
+                ret.error = "No permission to use userid in request directly. conf.user.directUserId is false";
+                return ret;
             }
+            userid = header.user?.userid;
         }
-
     }
-    /* else {
-        if(this.currentUser){
-            userRoles = this.currentUser.roles;
+
+    if(token) {
+        try{
+            if(this.conf.user.token?.schema) {
+                //tokens schema, maps tokens with userids
+                //finding token in tokens schema:
+                let _tokens = await this.dataPacket({
+                    $$schema: this.conf.user.token.schema,
+                    $$header: {
+                        action: 'R',
+                        filter: {
+                            [this.conf.user.token.tokenField]: token,
+                        },
+                        cache: {
+                            key: new Buffer(token).toString('base64'), //fixme encrypt it
+                            time: 100
+                        }
+                    }
+                }, null, {}, true);
+                if (_tokens.length < 1) {
+                    logger.error('No user with this token', token);
+                    ret.error = 'No user with this token '+token;
+                    return ret;
+                }
+                userid = _tokens[0][this.conf.user.token.useridField];
+            }
+            else {
+                let decoded = jwt.verify(token, this.conf.user.jwt?.secret);
+                userid = decoded.userid;
+                userRoles = decoded.roles;
+                user = decoded.user;
+            }
+
+        } catch (err) {
+            ret.error = err;
+            return ret;
         }
-    }*/
+    }
+
+    if(userid && !userRoles) {
+        //finding user
+        let _users = await this.dataPacket({
+            $$schema: this.conf.user.schema,
+            $$header: {
+                action: 'R',
+                filter: {
+                    $$objid: userid,
+                },
+                cache: {
+                    key: new Buffer(userid).toString('base64'), //fixme encrypt it
+                    time: 100
+                }
+            }
+        }, null, {}, true);
+        if (_users.length < 1) {
+            logger.error('No user with this id', userid);
+            ret.error = 'No user with this id '+userid;
+            return ret;
+        }
+        user = _users[0];
+        delete user[this.conf.user.passwordField];
+        userRoles = user[this.conf.user.rolesField];
+    }
 
     let _role = null;
     for (let r = 0; r < roles.length; r++) {
         let role = roles[r];
 
-        //roleid *
+        //for roleid equal to *
         if(role.roleId === '*') {
             if(
                 role.permissions.some(per => per.access.includes(userAction))

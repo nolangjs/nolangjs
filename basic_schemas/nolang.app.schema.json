@@ -409,7 +409,16 @@
                                 "options": {
                                     "type": "object",
                                     "properties": {
+                                        "domain": {
+                                            "description": "Domain name for the cookie. Defaults to the domain name of the app.",
+                                            "type": "string"
+                                        },
+                                        "encode": {
+                                            "description": "A synchronous function used for cookie value encoding. Defaults to encodeURIComponent.",
+                                            "type": "string"
+                                        },
                                         "SameSite": {
+                                            "description": "Value of the “SameSite” Set-Cookie attribute.",
                                             "type": "string",
                                             "default": "Strict"
                                         },
@@ -421,6 +430,10 @@
                                         "expires": {
                                             "type": "string",
                                             "description": "This parameter defines the expiry time of the cookie in GMT format. Default value is 0, that creates a session cookie"
+                                        },
+                                        "priority": {
+                                            "type": "string",
+                                            "description": "Value of the “Priority” Set-Cookie attribute."
                                         },
                                         "maxAge": {
                                             "type": "number",
@@ -437,6 +450,10 @@
                                         "secure": {
                                             "type": "boolean",
                                             "description": "This marks the cookie to be used only with https"
+                                        },
+                                        "partitioned": {
+                                            "type": "boolean",
+                                            "description": "Indicates that the cookie should be stored using partitioned storage"
                                         }
                                     }
                                 }

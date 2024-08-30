@@ -103,6 +103,14 @@ function getView(itsSchema, header, parentView) {
     return view;
 }
 
+function getFormat(format) {
+    let _format = format;
+    if (format === 'date') _format = 'YYYY/MM/DD';
+    if (format === 'time') _format = 'HH:mm:ss';
+    if (['date-time', 'datetime', 'timestamp'].includes(format)) _format = 'YYYY/MM/DD HH:mm:ss';
+    return _format;
+}
+
 async function getBox(propData, propSchema, pview, key, parentView, parentKey, schema, nl_engine, env, packet) {
     // console.log('getBox for '+key+'/'+parentKey+'/'+propData)
     let newBox = {
@@ -331,7 +339,9 @@ async function getBox(propData, propSchema, pview, key, parentView, parentKey, s
         // var pd = $('#flightdate').persianDatepicker().hide();
         try {
             if(propData) {
-                let value = jmoment.from(propData, 'en').format('YYYY/MM/DD');
+                let format = 'YYYY/MM/DD';
+                if (propSchema.format) format = getFormat(propSchema.format);
+                let value = jmoment.from(propData, 'en').format(format);
                 // console.log('jdate', propData, value)
                 newBox.value = value;
             } else {
@@ -465,7 +475,7 @@ async function pushGrid(schema, data, destination_id, view, key1, parentKey1, nl
     }, schema, env);
     // console.log('LENGTH', length[0].count)
     length = length[0].count;
-    let pages = Math.floor(length/view?.pagesize || 10)+1;
+    let pages = 1;// Math.floor(length/view?.pagesize || 10)+1;
     let fields = [];
     let ths = [];
     let _cols = 0;
@@ -507,12 +517,13 @@ async function pushGrid(schema, data, destination_id, view, key1, parentKey1, nl
             }
             let text = obj[f] || obj[schema.properties[f].title] || '';
             if(schema.properties[f].$$rel) {
-                console.log('reeeel', obj)
                 text = obj[schema.properties[f].$$rel.alias] || obj[schema.properties[f].$$rel.schema+'_'+schema.properties[f].$$rel.return] || obj[schema.properties[f].title] || obj[f] || ''
             }
             if(schema.properties[f].type === 'jdate') {
                 try {
-                    let value = jmoment.from(obj[f], 'en').format('YYYY/MM/DD');
+                    let format = 'YYYY/MM/DD';
+                    if (schema.properties[f].format) format = getFormat(schema.properties[f].format);
+                    let value = obj[f] ? jmoment.from(obj[f], 'en').format(format) : '';
                     text = value || '';
                 } catch (e) {
                     // console.log(e)
@@ -561,7 +572,7 @@ async function pushGrid(schema, data, destination_id, view, key1, parentKey1, nl
     }
     let footer = null;
     let buttons = [];
-    if(view.pagesize) {
+    /*if(view.pagesize) {
         let id = 'selector' + Math.floor(Math.random() * 10000000);
         buttons = buttons.concat([
             {
@@ -580,7 +591,7 @@ async function pushGrid(schema, data, destination_id, view, key1, parentKey1, nl
                 onclick: `nolang.go2page('${schema.$id}', '${view.viewId}', '${view.pagesize}', 'NEXT', '$$target', '${id}', ${length})`
             }
         ]);
-    }
+    }*/
     if(view.actions?.length > 0) {
         let $html = [];
         renderActions(view, schema, data, env, $html, nl_engine, schema.$id);
@@ -642,10 +653,10 @@ function renderActions(view, schema, packet, env, $html, nl_engine, schemaId) {
             type: ac.type || 'button',
             class: ac.class || 'submit',
             $text: ac.title || 'Submit',
-            'data-target': ac.target,
-            'data-view': ac.view,
+            'data-target': ac.target || '',
+            'data-view': ac.view || '',
             'data-action': ac.action || 'C',
-            'data-method': ac.method,
+            'data-method': ac.method || '',
             'data-id': schema.$$storage?.id || nl_engine?.conf?.storage?.id || '$$objid',
             'data-id-value': packet ? packet[schema.$$storage?.id || nl_engine?.conf?.storage?.id || '$$objid'] : null,
             'data-submit-message': ac.message || 'آیا از ارسال اطمینان دارید؟',
@@ -1062,7 +1073,7 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
             let schemaid;
             if (propData.$$header) {
                 schemaid = propData.$$schema;
-                let _schema = nl_engine.ajv.getSchema(schemaid).schema;
+                let _schema = nl_engine.ajv.getSchema(schemaid)?.schema;
                 /*deepEach(_schema, function (k, obj) {
                     let v = obj[k];
                     if (k === '$ref' && v.startsWith('#')) {
@@ -1072,17 +1083,21 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
                         delete obj[k];
                     }
                 });*/
-                let _propData = {...propData};
-                console.error(this.currentuser)
-                _propData.$$header.user = packet.$$header?.user;// {token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlcyI6WyJBRE1JTiJdLCJpYXQiOjE3MTM2ODYyNjAsImV4cCI6MTcxMzc1ODI2MH0.IW5bDgjJTXxWckcGB2Y3vVcagLYmwzw7nVbLA_cKdrY'}
-                let _packet = await nl_engine.dataPacket(_propData, _schema, env)
-                let pview = getView(_schema, propData.$$header , parentView);
-                let innerCell1 = await pushObject(_schema, _packet, null, pview, null, null, nl_engine, env);
-                innerCell.$html=[innerCell1];
-                if(propData.$$header.target) {
-                    //todo very bad
-                    innerCell = JSON.parse(JSON.stringify(innerCell).replace(/\$\$target/g, propData.$$header?.target));
-                    innerCell = JSON.parse(JSON.stringify(innerCell).replace(/\$\$page/g, propData.$$header?.page || 1));
+                if(_schema) {
+                    let _propData = {...propData};
+                    console.error(this.currentuser)
+                    _propData.$$header.user = packet.$$header?.user;// {token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlcyI6WyJBRE1JTiJdLCJpYXQiOjE3MTM2ODYyNjAsImV4cCI6MTcxMzc1ODI2MH0.IW5bDgjJTXxWckcGB2Y3vVcagLYmwzw7nVbLA_cKdrY'}
+                    let _packet = await nl_engine.dataPacket(_propData, _schema, env)
+                    let pview = getView(_schema, propData.$$header , parentView);
+                    let innerCell1 = await pushObject(_schema, _packet, null, pview, null, null, nl_engine, env);
+                    innerCell.$html=[innerCell1];
+                    if(propData.$$header.target) {
+                        //todo very bad
+                        innerCell = JSON.parse(JSON.stringify(innerCell).replace(/\$\$target/g, propData.$$header?.target));
+                        innerCell = JSON.parse(JSON.stringify(innerCell).replace(/\$\$page/g, propData.$$header?.page || 1));
+                    }
+                } else {
+                    logger.error(`schema ${schemaid} is not exists!`)
                 }
             } else {
                 schemaid = propData.$$import
@@ -1346,7 +1361,9 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
 
             if(propSchema.type === 'jdate') {
                 try {
-                    let value = jmoment.from(propData, 'en').format('YYYY/MM/DD');
+                    let format = 'YYYY/MM/DD';
+                    if (propSchema.format) format = getFormat(propSchema.format);
+                    let value = propData ? jmoment.from(propData, 'en').format(format) : '';
                     propData = value || '';
                     newValue.$text = propData;
                 } catch (e) {
