@@ -4,13 +4,10 @@
 
 # What is Nolang
 
-Nolang is a programming language or a framework with JSON syntax.
-In Nolang All things are JSON and code is similar data.
-A programmer only needs to <b>Define the entities</b>, when programs with Nolang.
-Nolang is not an object-oriented language, but it is an Entity-oriented language.
+Nolang is a programming language or framework that utilizes a <b>JSON</b> syntax. In Nolang, everything is represented as JSON, and code functions similarly to data. Programmers only need to define the entities when working with Nolang. While Nolang is not an object-oriented language, it is centered around an entity-oriented approach.
 
-## Usage of Nolang
-Nolang is very suitable for creating Back-End, RESTful services, Micro-services and even for Front-End. A fullstack application can be implemented with Nolang. 
+### Usage of Nolang
+Nolang is well-suited for developing back-end services, RESTful APIs, microservices, and even front-end applications. You can build a full-stack application using Nolang. 
 
 ### Website
 The official website of Nolang is https://nolang.org that includes documents.
