@@ -1,6 +1,6 @@
 {
   "name": "nolangjs",
-  "version": "1.1.20",
+  "version": "1.1.21",
   "description": "Nolang for javascript",
   "main": "nl_core/nl_index.js",
   "bin": {

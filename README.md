@@ -118,5 +118,5 @@ nolang /path/to/dir app.json
 Refer to Nolang website by address https://www.nolang.org.
 
 
-## Contact us
-You can connect us with info[@]nolang.org.
+# Share Your Feedback
+We value your input! If you have suggestions, issues, or comments about our package, please don't hesitate to reach out. Your feedback helps us improve. You can connect us with info[@]nolang.org.
