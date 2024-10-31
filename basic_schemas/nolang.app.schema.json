@@ -184,6 +184,22 @@
                         "properties": {
                             "type": {
                                 "type": "string",
+                                "enum": ["grpc"]
+                            },
+                            "port": {
+                                "type": "number"
+                            },
+                            "path": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["type","port"]
+                    },
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
                                 "enum": ["file","js"]
                             },
                             "filename": {
@@ -569,6 +585,26 @@
                             "type": {
                                 "type": "string",
                                 "enum": ["socket"]
+                            },
+                            "port": {
+                                "type": "number"
+                            },
+                            "host": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["name","type","port"]
+                    },
+                    {
+                        "properties": {
+                            "name": {
+                                "description": "key of this microservice",
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["grpc"]
                             },
                             "port": {
                                 "type": "number"

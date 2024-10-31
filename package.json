@@ -41,6 +41,7 @@
   },
   "homepage": "https://nolang.org",
   "dependencies": {
+    "@grpc/grpc-js": "^1.11.2",
     "ajv": "^8.11.0",
     "ajv-formats": "^2.1.1",
     "ajv-i18n": "^4.2.0",

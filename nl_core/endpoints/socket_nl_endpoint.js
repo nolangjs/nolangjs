@@ -52,7 +52,7 @@ module.exports = class socket_nl_endpoint extends nl_endpoint{
             throw err;
         });
         server.listen(this.conf.port, () => {
-            logger.info(`############     Nolang  Socket on port ${this.conf.port}  ############`)
+            logger.info(`############     Nolang  Socket on port ${thes.conf.port}  ############`)
         });
     }
 }
