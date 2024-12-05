@@ -1,5 +1,6 @@
 const nl_endpoint = require('./nl_endpoint');
-const readline = require("readline");
+const JSON5 = require('json5');
+const readline = require("node:readline");//todo use autocomplete
 const rl = readline.createInterface({
     input: process.stdin,
     output: process.stdout
@@ -23,16 +24,16 @@ module.exports = class cli_nl_endpoint extends nl_endpoint{
             }
         }
         rl.on('line', async function (line) {
-            logger.log('user:', line);
+            // logger.log('Enter NoScript:', line);
 
             try{
-                let req = JSON.parse(line);
+                let req = JSON5.parse(line);
 
-                thes.nl_endpoint_method(req, listener).then(res => {
-                    logger.log(res);
-                });
+                thes.nl_endpoint_method(req, listener)
+                    .then(res => console.table(res))
+                    .catch (err => logger.error(err));
             } catch (err){
-                logger.error(err);
+                logger.error(err.message);
             }
 
         });
