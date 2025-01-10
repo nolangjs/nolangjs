@@ -2,12 +2,16 @@
   <img src="https://nolang.org/img/nolangtlogo.png" width="350" title="Nolang" alt="Nolang">
 </p>
 
+# Share Your Feedback 
+We value your input! If you have suggestions, issues, or comments about our package, please don't hesitate to reach out. Your feedback helps us improve. You can connect us with info[@]nolang.org.
+
+
 # What is Nolang
 
-Nolang is a programming language or framework that utilizes a <b>JSON</b> syntax. In Nolang, everything is represented as JSON, and code functions similarly to data. Programmers only need to define the entities when working with Nolang. While Nolang is not an object-oriented language, it is centered around an entity-oriented approach.
+Nolang is a new programming language and can be used as a nodejs framework. In Nolang, everything is defined with JSON syntax, and code functions similarly to data. Programmers only need to define the entities when create programs with Nolang.
 
 ### Usage of Nolang
-Nolang is well-suited for developing back-end services, RESTful APIs, microservices, and even front-end applications. You can build a full-stack application using Nolang. 
+Nolang is well-suited for developing back-end services, RESTful APIs, microservices, and even front-end applications.
 
 ### Website
 The official website of Nolang is https://nolang.org that includes documents.
@@ -45,12 +49,13 @@ When we want to ask from a NoLang program to do something, we must use NoLang Sc
 	"FieldName2": 25
 }
 ```
-To connect and send a Script to NoLang program, we must use NoLang Endpoints which is described next.
+## NoLang Endpoints
+NoLang Endpoints are the ways To connect and send a Script to a NoLang app. Several types of endpoints are supported for example http, socket, ipc, redis and very more.
 
 
 
 # Nolang Application
-Creating application with Nolang is very easy.
+Structure of a Nolang application is very Straightforward.
 
 ## Structure of a NoLang app
 
@@ -108,7 +113,7 @@ After installing nolangjs package, Nolang cli can be used to run a Nolang applic
 npm i nolangjs -g
 ```
 ```
-nolang /path/to/dir app.json
+nolang app.json
 ```
 
 # Documentation
