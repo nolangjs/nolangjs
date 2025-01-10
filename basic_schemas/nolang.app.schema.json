@@ -184,6 +184,19 @@
                         "properties": {
                             "type": {
                                 "type": "string",
+                                "enum": ["ipc"]
+                            },
+                            "id": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["type", "id"]
+                    },
+                    {
+                        "properties": {
+                            "type": {
+                                "type": "string",
                                 "enum": ["grpc"]
                             },
                             "port": {
@@ -637,6 +650,23 @@
                         },
                         "additionalProperties": false,
                         "required": ["name","type","url"]
+                    },
+                    {
+                        "properties": {
+                            "name": {
+                                "description": "key of this ipc",
+                                "type": "string"
+                            },
+                            "type": {
+                                "type": "string",
+                                "enum": ["ipc"]
+                            },
+                            "id": {
+                                "type": "string"
+                            }
+                        },
+                        "additionalProperties": false,
+                        "required": ["id","type"]
                     }
                 ]
             }

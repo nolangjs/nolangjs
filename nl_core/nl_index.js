@@ -1,5 +1,3 @@
-#! /usr/bin/env node
-
 //index file for running a nolang app
 
 //enable json5 require
@@ -25,91 +23,21 @@ const nl_logger = require('./nl_logger');
 const logger = new nl_logger();
 global.logger = logger;
 
+
 //rule_runner
 const rule_runner = require('./nl_rule_runner');
 
 //starting Nolang compile
 logger.debug("$$ running Nolang compiler $$");
 
-
-/*//cache
-const nl_cache = require('./nl_cache');
-const _nl_cache = new nl_cache(() => {
-    logger.log('Redis client connected');
-    _nlCompiler.nlCompile();
-}, () => {
-    logger.log('Something went wrong in caching');
-})*/
-
-
-//uuid
-// const uuid = require('uuid-random');
-//lodash
-// var _ = require('lodash');
-
-//glob, path
-/*const glob = require('glob')
-    , path = require('path');*/
 const path = require('path');
 
 const fs = require('fs');
 
-
-//seashell operators
-// jsonLogic.add_operation("size", );
-
-//logger
-// const winston = require('winston');
-
 const ST = require('stjs');
 
-// //global settings and files
-// const ssServerConf = require('../ssconf/ss.server.conf.json');
 const entitySchema = require('../basic_schemas/nolang.entity.schema.json');
 const appSchema = require('../basic_schemas/nolang.app.schema.json');
-// const ss_modules = ssServerConf.ss_modules;
-
-// let sook;
-// let sookid;
-// let sockio;
-
-function getAppName() {
-    //name of package file
-    const appName = process.argv[3] || 'app.json5' || 'app.json';
-
-    if (process.argv[2]) {
-        global.appPath = path.resolve(process.argv[2]);
-    } else {
-        global.appPath = process.cwd();
-    }
-    return appName;
-}
-
-function getAppConf(appName) {
-    // logger.info("$$ finding app root ", global.appPath);
-
-    //appConf load configuration
-    if(fs.existsSync(path.join(global.appPath, appName))) {
-        return require(path.join(global.appPath, appName));
-    } else {
-        return {
-            schemas: global.appPath,
-            endpoints: [
-                {
-                    type: 'http',
-                    port: 1919,
-                    routes: [
-                        {
-                            path: '/',
-                            method: 'post'
-                        }
-                    ]
-                }
-                ]
-        }
-    }
-}
-
 class nlCompiler {
 
     loadedSchemas = [];
@@ -119,149 +47,15 @@ class nlCompiler {
     inited = false;
     adapters = {};
 
-
-
-    constructor () {
-        this.nlCompile();
+    constructor (appName, appConf) {
+        this.nlCompile(appName, appConf);
     }
 
-    /*constructor (/!*theapp_, server*!/) {
-        ///this.iii = 0;
-        // let theapp = JSON.parse(JSON.stringify(theapp_));//todo delete
-
-        this.loadedSchemas = [];
-        this.compiledSchemas = [];
-        this.conf = {};
-
-        /!** todo define listeners
-         * listeners
-         * {
-         *     "schema id":[
-         *         {
-         *             "header": {},
-         *             "listener": listener Function
-         *         }
-         *     ]
-         * }
-         * @type {{}}
-         *!/
-        this.listeners = {};
-
-
-        // this.appvars = {};
-        //
-        // this.routing = {};//todo move to apis
-        //ssConf routing
-        // let appdir = theapp.appdir;
-        // if (appdir.startsWith('@apps/')) {
-        //     appdir = ssServerConf.appsdir + appdir.replace('@apps/', '');
-        // }
-        // this.approot = appdir;
-        // try {
-        //     let _ssConf = require(this.approot + '/conf/ss.app.conf.json');
-        //     this.ssConf = {... _ssConf};
-        //     //override configuration:
-        //     if(theapp.overrideconf){
-        //         for(let k in theapp.overrideconf) {//todo change with Object.assign
-        //             _.set(this.ssConf, k, theapp.overrideconf[k]);
-        //         }
-        //     }
-        // } catch (e) {
-        //     console.error('start of application ' + theapp.name + ' failed.\n' + e);
-        //     return;
-        // }
-        //
-        // //setting appvars
-        // if (this.ssConf.appvars)
-        //     Object.assign(this.appvars, this.ssConf.appvars);
-        //todo move to apis
-        // if(this.appvars && this.appvars.usesocket)
-        //     this.setSocketio(theapp, server);
-        //
-        // //setting routing
-        // if (this.ssConf.routing)
-        //     Object.assign(this.routing, this.ssConf.routing);
-
-        // //check i18n todo
-        // if (this.ssConf.i18n) {
-        //     this.appvars.i18n = this.ssConf.i18n;
-        // }
-
-        /!*!//logger routing todo move to log
-        this.logdir = this.approot + this.ssConf.logdir;
-
-        console = winston.createLogger({
-            level: 'info',
-            format: winston.format.json(),
-            transports: [
-                //
-                // - Write to all logs with level `info` and below to `combined.log`
-                // - Write all logs error (and below) to `error.log`.
-                //
-                new winston.transports.File({filename: this.logdir + 'error.log', level: 'error'}),
-                new winston.transports.File({filename: this.logdir + 'combined.log'})
-            ]
-        });
-
-        // If we're not in production then log to the `console` with the format:
-        // `${info.level}: ${info.message} JSON.stringify({ ...rest }) `
-        //
-        if (process.env.NODE_ENV !== 'production') {
-            console.add(new winston.transports.Console({
-                format: winston.format.timestamp({
-                    format: 'YYYY-MM-DD HH:mm:ss'
-                })
-            }));
-        }*!/
-
-
-        //todo test
-        // this.schemas = this.approot + this.ssConf.schemas;
-        // this.testdir = this.approot + this.ssConf.testdir;
-
-
-        // let thes = this;todo remove
-        //
-        // //index file content
-        // let filePath = path.join(__dirname + "/"+ this.approot+"/views/index.html");
-        //
-        // fs.readFile(filePath, {encoding: 'utf-8'}, function(err,data){
-        //     if (!err) {
-        //         //console.log('received data: ' + data);
-        //         thes.index_html = data;
-        //         /!*response.writeHead(200, {'Content-Type': 'text/html'});
-        //          response.write(data);
-        //          response.end();*!/
-        //     } else {
-        //         console.log(err);
-        //     }
-        // });
-
-        //call ssCompile
-        // this.nlCompile(); instead run at Redis connect
-
-
-        //todo move to test
-        // if (process.env.NODE_ENV !== 'production') {
-        //     if (thes.ssConf.asserttest) {
-        //         setTimeout(function () {
-        //             //call assertion
-        //             console.log('Start asserting:');
-        //             thes.ssAssert();
-        //         }, 2000);
-        //     }
-        //
-        // }
-
-
-        this.nlCompile();
-    }*/
-
-    nlCompile() {
+    nlCompile(appName, appConf) {
         // redisClient.flushall();
 
         this.loadedSchemas = [];
-        logger.info("run ssCompile");
+        logger.info("start to compile");
 
         //init ajv
         this.initAjv();
@@ -272,12 +66,6 @@ class nlCompiler {
         };
 
         let thes = this;
-
-        const appName = getAppName();
-
-        // global.appPath = path.join(__dirname, appPath);
-
-        const appConf = getAppConf(appName);
 
         logger.debug('app nolang file loaded', appConf);
 
@@ -291,7 +79,7 @@ class nlCompiler {
 
 
         let confIsValid = _ajv.validate(appSchema, appConf);
-        if(!confIsValid){
+        if(!confIsValid) {
             logger.error('ERROR',appName,'is not valid',_ajv.errors);
             return ;
         }
@@ -462,6 +250,8 @@ class nlCompiler {
 
         const thes = this;
 
+        //todo need to refactor to a section for add keywords
+
         this.ajv.addKeyword( {
             keyword: '$$rules',
             type: 'object',
@@ -579,7 +369,7 @@ class nlCompiler {
                     "$$schema": rel.schema
                 },null, env );
 
-                let exists = returns?.length === 1;
+                let exists = returns?.length === 1;//todo check maybe length>1
                 if(! exists) {
                     logger.error("key not found in parent " + rel.id);
                 }
@@ -999,9 +789,9 @@ class nlCompiler {
             this.validator.errors.push({"$$message": "$$ invalid schema " + filename});
             logger.error("$$ invalid schema " + filename);
             logger.error(this.validator.errors);
-            if (process.env.NODE_ENV !== 'production') {
+            /*if (process.env.NODE_ENV !== 'production') {
                 logger.error(this.validator.errors);
-            }
+            }*/
 
             /*try {
                 localize.fa(this.validator.errors);
@@ -1024,6 +814,9 @@ class nlCompiler {
      * @returns {Promise<*|{error: string}|{}|null|{success: boolean, message: string}|null|undefined>}
      */
     async runPacket(req_packet, listener, env) {
+        let data_message;
+        let _env = {...env};
+
         if(typeof req_packet === 'string'){
             try {
                 req_packet = JSON.parse(req_packet)
@@ -1071,7 +864,7 @@ class nlCompiler {
         //depricated
         // req_packet = this.handlePacket(req_packet, req_packet);
 
-        let Schema = this.ajv.getSchema(req_packet.$$schema);
+        let Schema = req_packet.$$schema ? this.ajv.getSchema(req_packet.$$schema) : null;
 
         if(!header) {
             header = {
@@ -1107,102 +900,166 @@ class nlCompiler {
         }
 
 
-        if(!Schema){
+        /*if(!Schema){
             logger.error("dataPacket: no Schema "+req_packet.$$schema);
             return {success:false, errorcode: 'SCHEMA_NOT_EXISTS', message: "No Schema with id "+req_packet.$$schema};
-        }
-        let schema = {...Schema.schema};
-
-        // schema = this.handlePacket(schema, schema);
-        let _env = {...env};
-        schema = await this.preparePacket(schema, {env: _env, data: req_packet, schema: schema}, false);
-
-        //prepare packet
-        req_packet = await this.preparePacket(req_packet, {env:_env, data: req_packet, schema: schema}, true);
-
-
-        let action = header?.action;
-        /*if(!action){
-            let renderedView = await _ssCompiler.renderViewTemp(req_packet, data_message);
-            /!*if (data_message) {
-             renderedView.data = data_message;
-             }*!/
-            return renderedView;
         }*/
+        if(Schema) {
+            let schema = {...Schema.schema};
 
-        /*if(!action) {
-            return {success: false, message: "$$header.action not exists!", error: 'MISSING_$$HEADER.ACTION'}
-        }*/
+            // schema = this.handlePacket(schema, schema);
 
-        let data_message;
+            schema = await this.preparePacket(schema, {env: _env, data: req_packet, schema: schema}, false);
 
-        if ('M'.indexOf(action) >= 0) {
-            data_message = await _ssCompiler.callMethod(req_packet, _env);
-            // header = req_packet.data.$$header;
-            // action = header.action;
-        }
-
-        if ('W'.indexOf(action) >= 0) {
-            data_message = req_packet;
-        }
-
-        /*//Length of data array
-        let returnLength = false;
-        if('L'.indexOf(action) >= 0) {
-            returnLength = true;
-            header.action = 'R';
-            action = 'R';
-        }*/
+            //prepare packet
+            req_packet = await this.preparePacket(req_packet, {env: _env, data: req_packet, schema: schema}, true);
 
 
-        if ('CRUDL'.indexOf(action) >= 0) {
-            //do dataPacket
-            let _packet = {...req_packet};
-            data_message = await _ssCompiler.dataPacket(_packet, schema, _env);
+            let action = header?.action;
+            /*if(!action){
+                let renderedView = await _ssCompiler.renderViewTemp(req_packet, data_message);
+                /!*if (data_message) {
+                 renderedView.data = data_message;
+                 }*!/
+                return renderedView;
+            }*/
 
-            if(header?.hasOwnProperty('path')) {
-                try {
-                    data_message = JSONPath(header.path, data_message);
-                } catch(e) {
-                    logger.error(e);
-                }
+            /*if(!action) {
+                return {success: false, message: "$$header.action not exists!", error: 'MISSING_$$HEADER.ACTION'}
+            }*/
+
+
+
+            if ('M'.indexOf(action) >= 0) {
+                data_message = await _ssCompiler.callMethod(req_packet, _env);
+                // header = req_packet.data.$$header;
+                // action = header.action;
             }
 
-            if(header?.hasOwnProperty('get') && Array.isArray(data_message)) {
-                data_message = data_message[header.get];
+            if ('W'.indexOf(action) >= 0) {
+                data_message = req_packet;
             }
 
-            let _then = () => (data_message && ((Array.isArray(data_message) && data_message.length>0) || (!Array.isArray(data_message) && typeof data_message ==='object' /*&& data_message.success*/)));
-            if(header?.then && _then()) {
-                header.then = ST.select({ script: req_packet, [req_packet.$$schema] : Array.isArray(data_message)?data_message[0]:data_message}).transformWith(header.then).root();
-                if (header.then.$$header) {
-                    return _ssCompiler.runPacket(header.then, null, _env);
-                }
-                if(header.then.$$set) {
-                    for(let key in header.then.$$set) {
-                        data_message[key] = header.then.$$set[key];
+            /*//Length of data array
+            let returnLength = false;
+            if('L'.indexOf(action) >= 0) {
+                returnLength = true;
+                header.action = 'R';
+                action = 'R';
+            }*/
+
+
+            if ('CRUDL'.indexOf(action) >= 0) {
+                //do dataPacket
+                let _packet = {...req_packet};
+                data_message = await _ssCompiler.dataPacket(_packet, schema, _env);
+
+                if (header?.hasOwnProperty('path')) {
+                    try {
+                        data_message = JSONPath(header.path, data_message);
+                    } catch (e) {
+                        logger.error(e);
                     }
                 }
-                if(header.then.$$remove) {
-                    for(let key of header.then.$$remove) {
-                        delete data_message[key];
+
+                if (header?.hasOwnProperty('get') && Array.isArray(data_message)) {
+                    data_message = data_message[header.get];
+                }
+
+                let _then = () => (data_message && ((Array.isArray(data_message) && data_message.length > 0) || (!Array.isArray(data_message) && typeof data_message === 'object' /*&& data_message.success*/)));
+                if (header?.then && _then()) {
+                    header.then = ST.select({
+                        script: req_packet,
+                        [req_packet.$$schema]: Array.isArray(data_message) ? data_message[0] : data_message
+                    }).transformWith(header.then).root();
+                    if (header.then.$$header) {
+                        return _ssCompiler.runPacket(header.then, null, _env);
+                    }
+                    if (header.then.$$set) {
+                        for (let key in header.then.$$set) {
+                            data_message[key] = header.then.$$set[key];
+                        }
+                    }
+                    if (header.then.$$remove) {
+                        for (let key of header.then.$$remove) {
+                            delete data_message[key];
+                        }
                     }
                 }
-            }
 
-            let _else = () => (!data_message || ((!Array.isArray(data_message) && typeof data_message ==='object' && !data_message.success) || (Array.isArray(data_message) && data_message.length<1)));
-            if(header?.else && _else()) {
-                header.else = ST.select({ script: req_packet, [req_packet.$$schema] : Array.isArray(data_message)?data_message[0]:data_message}).transformWith(header.else).root();
-                if (header.else.$$header) {
-                    return _ssCompiler.runPacket(header.else, null, _env);
-                }/* else if(header.else.$$new) {
+                let _else = () => (!data_message || ((!Array.isArray(data_message) && typeof data_message === 'object' && !data_message.success) || (Array.isArray(data_message) && data_message.length < 1)));
+                if (header?.else && _else()) {
+                    header.else = ST.select({
+                        script: req_packet,
+                        [req_packet.$$schema]: Array.isArray(data_message) ? data_message[0] : data_message
+                    }).transformWith(header.else).root();
+                    if (header.else.$$header) {
+                        return _ssCompiler.runPacket(header.else, null, _env);
+                    }/* else if(header.else.$$new) {
                     if(!data_message.$$new)
                         data_message.$$new = {};
                     for(let key in header.then.$$new){
                         data_message.$$new[key] = header.then.$$new[key];
                     }
                 }*/
+                }
             }
+
+            /*if(returnLength) {
+            header.action = 'L';
+            data_message = data_message?.length;
+        }*/
+
+
+            //check for push to listeners //todo except action R
+            if(data_message && action !== 'R' && this.listeners.hasOwnProperty(req_packet.$$schema)){
+                for(let lis of this.listeners[req_packet.$$schema]){
+                    //check header filter
+                    let check = true;
+                    if(lis.header?.filter){
+
+                        for(let key in lis.header.filter) {
+                            if(Array.isArray(data_message)) {
+                                data_message.map(doc=>{
+                                    check = check && (doc[key] === lis.header.filter[key]);
+                                })
+                            } else {
+                                check = check && (data_message[key] === lis.header.filter[key]);
+                            }
+                        }
+                    }
+                    //todo check filterrules
+
+                    if(check && lis.listener.handler) {
+                        lis.listener.handler(data_message);
+                    }
+                }
+            }
+
+            //add to listeners
+            if(header?.listen) {
+                if(listener) {
+                    //init push list for this schema
+                    if(!this.listeners.hasOwnProperty(req_packet.$$schema)){
+                        this.listeners[req_packet.$$schema] = [];
+                    }
+                    //add push request
+                    //todo check if not exists
+                    this.listeners[req_packet.$$schema].push({
+                        // listenerId: uuid(),
+                        header: header,
+                        listener: listener
+                    })
+                }
+            }
+
+            /*if ('WR'.indexOf(action) >= 0) {
+                let renderedView = await _ssCompiler.renderViewTemp(req_packet, data_message);
+                /!*if (data_message) {
+                    renderedView.message = data_message;
+                }*!/
+                return renderedView;
+            }*/
         }
 
         /*if(this.appvars && this.appvars.usesocket)
@@ -1214,62 +1071,6 @@ class nlCompiler {
             logger.log('Response');
             logger.log(data_message);
         }
-
-        /*if(returnLength) {
-            header.action = 'L';
-            data_message = data_message?.length;
-        }*/
-
-
-        //check for push to listeners //todo except action R
-        if(data_message && action !== 'R' && this.listeners.hasOwnProperty(req_packet.$$schema)){
-            for(let lis of this.listeners[req_packet.$$schema]){
-                //check header filter
-                let check = true;
-                if(lis.header?.filter){
-
-                    for(let key in lis.header.filter) {
-                        if(Array.isArray(data_message)) {
-                            data_message.map(doc=>{
-                                check = check && (doc[key] === lis.header.filter[key]);
-                            })
-                        } else {
-                            check = check && (data_message[key] === lis.header.filter[key]);
-                        }
-                    }
-                }
-                //todo check filterrules
-
-                if(check && lis.listener.handler) {
-                    lis.listener.handler(data_message);
-                }
-            }
-        }
-
-        //add to listeners
-        if(header?.listen) {
-            if(listener) {
-                //init push list for this schema
-                if(!this.listeners.hasOwnProperty(req_packet.$$schema)){
-                    this.listeners[req_packet.$$schema] = [];
-                }
-                //add push request
-                //todo check if not exists
-                this.listeners[req_packet.$$schema].push({
-                    // listenerId: uuid(),
-                    header: header,
-                    listener: listener
-                })
-            }
-        }
-
-        /*if ('WR'.indexOf(action) >= 0) {
-            let renderedView = await _ssCompiler.renderViewTemp(req_packet, data_message);
-            /!*if (data_message) {
-                renderedView.message = data_message;
-            }*!/
-            return renderedView;
-        }*/
 
         //render view
         if(header?.view) {
@@ -1529,7 +1330,7 @@ class nlCompiler {
                 //TODO change .error to .warning
             }
 
-            if(storage === {}) {//todo, check is this compare true way
+            if(Object.keys(storage).length === 0) {
                 logger.error("storage is not set for " + packet.$$schema);
                 return { //TODO uniform return with message and code
                     "message": "storage is not set",
@@ -1991,42 +1792,6 @@ class nlCompiler {
     }
 }
 
-
-
-
-
-let _conf = getAppConf(getAppName());
-if(_conf?.cluster) {
-    const cluster = require('cluster');
-    cluster.schedulingPolicy = cluster.SCHED_RR;
-    const process1 = require('process');
-    let numCPUs = require('os').cpus().length;
-
-    if((typeof _conf.cluster === 'number') && (_conf.cluster > 0) && (_conf.cluster<numCPUs)){
-        numCPUs = _conf.cluster;
-    }
-
-    if (cluster.isMaster) {
-        logger.trace(`Primary ${process1.pid} is running`);
-
-        // Fork workers.
-        for (let i = 0; i < numCPUs; i++) {
-            logger.log('Run Nolang on cluster ' + (i + 1))
-            cluster.fork();
-        }
-
-        cluster.on('exit', (worker, code, signal) => {
-            logger.log(`worker ${worker.process.pid} died`);
-        });
-    } else {
-        const _nlCompiler = new nlCompiler();
-    }
-} else {
-    const _nlCompiler = new nlCompiler();
-}
-
-// module.exports = _nlCompiler.runPacket;
-
 function is_Array(item) {
     return (
         Array.isArray(item) ||
@@ -2036,5 +1801,7 @@ function is_Array(item) {
         )
     );
 }
+
+module.exports = nlCompiler;
 
 

@@ -7,7 +7,7 @@ const yaml = require('yaml');
 module.exports = class file_schema_loader extends schema_loader{
 
     async loadAll() {
-        logger.log('load schema files ');
+        // logger.log('loading schema files ...');
         let schemaFiles;
         if(!path.isAbsolute(this.conf.path))
             schemaFiles = path.join(global.appPath , this.conf.path , '/*.{json,json5,js,yaml,yml}');

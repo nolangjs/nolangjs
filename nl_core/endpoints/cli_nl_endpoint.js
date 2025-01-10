@@ -30,7 +30,12 @@ module.exports = class cli_nl_endpoint extends nl_endpoint{
                 let req = JSON5.parse(line);
 
                 thes.nl_endpoint_method(req, listener)
-                    .then(res => console.table(res))
+                    .then(res => {
+                        if(req.$$header?.view ==='table')
+                            console.table(res)
+                        else
+                            console.log(res)
+                    })
                     .catch (err => logger.error(err));
             } catch (err){
                 logger.error(err.message);

@@ -374,7 +374,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                                 }
                             } else {
                                 res.type(route.type || nlresponse?.$$res?.type || 'json');
-                                delete nlresponse.$$res;
+                                delete nlresponse?.$$res;
                                 res.send(nlresponse);
                             }
                         })
