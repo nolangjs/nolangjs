@@ -105,15 +105,37 @@ Config file must be in JSON or JSON5 format and can have any name, its default n
 	]
 }
 ```
+## Install Nolang
+To install Nolang there are two ways:
+1. Downloading the executable Nolang for Windows or Linux.
+   - <a href="https://github.com/nolangjs/nolangjs/releases/tag/nolang_runtime_1.2.1">Nolang executable files</a>
+    
+2. Installing Nolang by npm.
+    ```
+    npm i nolangjs -g
+    ```
 
 ## Run Nolang app
-After installing nolangjs package, Nolang cli can be used to run a Nolang application.
+After installing Nolang using installer or npm, Nolang cli can be used to run a Nolang application.
+
+
+Using executable:
+```
+# cd /path/to/executable
+# nolang_b_lin64.1.2.1 app.json5 
+```
+If Nolang was installed using Windows installer or npm:
+```
+nolang app.json5
+```
+
+You can also use following commands:
 
 ```
-npm i nolangjs -g
-```
-```
-nolang app.json
+nolang app.json -d path/to/app/dir
+nolang -a app.json5 -d path/to/app/dir
+nolang -h
+nolang -v
 ```
 
 # Documentation

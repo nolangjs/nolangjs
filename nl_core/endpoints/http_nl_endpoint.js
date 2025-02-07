@@ -452,23 +452,27 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
         }
 
         if(this.conf?.watch) {
-            const reload_ = require('reload');
-            let opt = {};
-            if(typeof this.conf.watch === "number") {
-                logger.info('http reload is activated on port '+ this.conf.watch);
-                opt.port = this.conf.watch;
+            try {
+                const reload_ = require('reload');
+                let opt = {};
+                if(typeof this.conf.watch === "number") {
+                    logger.info('http reload is activated on port '+ this.conf.watch);
+                    opt.port = this.conf.watch;
+                }
+                reload_(app, opt).then(function (reloadReturned) {
+                    // reloadReturned is documented in the returns API in the README
+                    // Reload started, start web server
+                    /*server.listen(app.get('port'), function () {
+                        console.log('Web server listening on port ' + app.get('port'))
+                    })*/
+                    _reloadReturned = reloadReturned;
+                    doListen();
+                }).catch(function (err) {
+                    console.error('Reload could not start, could not start server/sample app', err)
+                })
+            } catch {
+
             }
-            reload_(app, opt).then(function (reloadReturned) {
-                // reloadReturned is documented in the returns API in the README
-                // Reload started, start web server
-                /*server.listen(app.get('port'), function () {
-                    console.log('Web server listening on port ' + app.get('port'))
-                })*/
-                _reloadReturned = reloadReturned;
-                doListen();
-            }).catch(function (err) {
-                console.error('Reload could not start, could not start server/sample app', err)
-            })
         } else {
             doListen();
         }

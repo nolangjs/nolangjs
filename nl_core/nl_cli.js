@@ -4,10 +4,24 @@
 
 const fs = require('fs');
 const path = require('path');
-const yargs = require('yargs/yargs')
+const yargs = require('yargs')
 const {hideBin} = require('yargs/helpers')
 let pargv = process.argv;
 pargv[1] = 'nolang'
+
+if (typeof Bun !== "undefined") {
+    global.runner = 'bun'
+} else {
+    global.runner = 'node'
+}
+
+function readApp(_path) {
+    let app = fs.readFileSync(_path);
+    if(path.extname(_path) === '.json5')
+        return require('json5').parse(app)
+    else
+        return JSON.parse(app)
+}
 
 const argv = yargs(hideBin(pargv))
     .command({
@@ -62,6 +76,11 @@ const argv = yargs(hideBin(pargv))
 function run(appName, appPath) {
     const nlCompiler = require('./nl_index');
     appPath = path.resolve(appPath)
+    const packageJson = require('../package.json');
+    console.log('⚡⚡⚡  Welcome to Nolang version', packageJson.version,' ⚡⚡⚡')
+    console.log('❤  We\'d love to hear from you! Please send your feedback to info@nolang.org')
+    console.log('☆ If you find this project useful, please consider giving us a Star on GitHub. Your support means a lot! https://github.com/nolangjs/nolangjs')
+    console.log('')
 
     global.appPath = appPath;
     let appConf;
@@ -69,18 +88,18 @@ function run(appName, appPath) {
         let _path = path.join(appPath, appName);
         if (fs.existsSync(_path)) {
             // console.log('----------', fs.stat)
-            appConf = require(_path);
+            appConf = readApp(_path);
         } else {
-            console.error('Error: app name or path is not true!' )
+            console.error('Error: Invalid app name or path. Please use the format > nolang app.json5 -d path/to/app/dir' )
             return
         }
     } else {
         if (fs.existsSync(path.join(appPath, 'app.json5'))) {
             // console.log('----------', fs.stat)
-            appConf = require(path.join(appPath, 'app.json5'));
+            appConf = readApp(path.join(appPath, 'app.json5'));
             appName = 'app.json5';
         } else if (fs.existsSync(path.join(appPath, 'app.json'))){
-            appConf = require(path.join(appPath, 'app.json'));
+            appConf = readApp(path.join(appPath, 'app.json'));
             appName = 'app.json';
         } else {
             appConf = {
@@ -112,7 +131,7 @@ function run(appName, appPath) {
         }
     }
 
-    console.log(`Running ${appPath}/${appName || '?'} ...`);
+    console.log(`⚡ Running ${appPath}/${appName || '?'} ...`);
 
     if(appConf?.cluster) {
         const cluster = require('cluster');

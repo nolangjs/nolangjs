@@ -1,61 +1,78 @@
 const path = require('path');
-const pino = require('pino');
-/*const pretty = require('pino-pretty');*/
-/*let pino1 = pino({
-    transport: {
-        target: 'pino-pretty',
-        options: {
-            colorize: true
-        }
-    }
-});*/
-/*let pinoLogger = pino(pretty(/!*{
-    colorize: true
-}*!/));*/
 
-let targets = [{
-    level: 'info',
-    target: 'pino-pretty' // must be installed separately
-}/*, {
-    level: 'trace',
-    target: 'pino/file',
-    options: { destination: `${__dirname}/combined.log` }
-}*/];
+const { createLogger, format, transports } = require('winston');
+const { combine, timestamp, colorize, json, printf } = format;
+const winston = require('winston');
+
+const customLevels = {
+    levels: {
+        error: 0,
+        warn: 1,
+        info: 2,
+        verbose: 3,
+        debug: 4,
+        silly: 5,
+        trace: 6 // Adding custom trace level
+    },
+    colors: {
+        error: 'red',
+        warn: 'yellow',
+        info: 'green',
+        verbose: 'cyan',
+        debug: 'blue',
+        silly: 'magenta',
+        trace: 'gray' // Adding custom color for trace level
+    }
+};
+
+// Apply custom colors to Winston
+winston.addColors(customLevels.colors);
+
+// Define a custom log format
+const logFormat = printf(({ timestamp, level, message }) => {
+    if(typeof message === 'object')
+        message = JSON.stringify(message, null, 4)
+    return `${timestamp} ${level}: ${message}`;
+});
+
+let _transports = [
+    new transports.Console({ format: combine(timestamp(),colorize(), logFormat) })
+];
+
+// Create a Winston logger with separate file transports for each log level
+const logger = createLogger({
+    levels: customLevels.levels,
+    format: timestamp(),
+    transports: _transports
+});
 
 
 class nl_logger {
 
-    getTransport(targets) {
-        return pino.transport({
-            targets: targets
-        });
-    }
-
     constructor() {
-        this.pinoLogger = pino(this.getTransport(targets))
+        this.Logger = logger
     }
 
     opt = null
 
     setOptions(opt) {
         if (opt.files) {
-            let targets = [{
-                level: 'trace',
-                target: 'pino-pretty' // must be installed separately
-            }];
+
             for (let level in opt.files) {
                 let destination = opt.files[level];
                 if (!path.isAbsolute(destination)) {
                     destination = path.join(global.appPath, destination);
                 }
 
-                targets.push({
-                    level: level,
-                    target: 'pino/file',
-                    options: {destination: destination}
-                })
+                _transports.push(
+                    new transports.File({ filename: destination, level: level, format: json() })
+                )
             }
-            this.pinoLogger = pino(this.getTransport(targets));
+            this.Logger = createLogger({
+                levels: customLevels.levels,
+                format: timestamp(),
+                transports: _transports
+            });
         }
     }
 
@@ -113,29 +130,29 @@ class nl_logger {
                 }
             }
         }
-        let pinoLogger = this.pinoLogger;
-        if(!pinoLogger) return;
+        let _logger = this.Logger;
+        if(!_logger) return;
         switch (level) {
             case 'fatal':
-                pinoLogger.fatal(msg);
+                _logger.fatal(msg);
                 break;
             case 'error':
-                pinoLogger.error(msg);
+                _logger.error(msg);
                 break;
             case 'warn':
-                pinoLogger.warn(msg);
+                _logger.warn(msg);
                 break;
             case 'trace':
-                pinoLogger.trace(msg);
+                _logger.trace(msg);
                 break;
             case 'info':
-                pinoLogger.info(msg);
+                _logger.info(msg);
                 break;
             case 'debug':
-                pinoLogger.debug(msg);
+                _logger.debug(msg);
                 break;
             default:
-                pinoLogger.info(msg);
+                _logger.info(msg);
         }
     }
 }

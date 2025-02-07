@@ -3,6 +3,7 @@ const glob = require('glob'), path = require('path'), fs = require('fs');
 const chokidar = require('chokidar');
 const logger = global.logger;
 const yaml = require('yaml');
+const json5 = require('json5');
 
 module.exports = class file_schema_loader extends schema_loader{
 
@@ -20,14 +21,20 @@ module.exports = class file_schema_loader extends schema_loader{
         glob.sync(schemaFiles).forEach(function (fileName) {
             try {
                 delete require.cache[path.resolve(fileName)];
-                let schema ;
+                let schema = {} ;
                 //yaml
                 if(['.yaml','.yml'].indexOf(path.extname(fileName))>-1){
                     schema = yaml.parse(fs.readFileSync(fileName, 'utf8'));
+                } else if(['.json5'].indexOf(path.extname(fileName))>-1){
+                    schema = json5.parse(fs.readFileSync(fileName, 'utf8'));
                 } else {
                     schema = require(path.resolve(fileName))
                 }
-                schema.filepath = fileName;
+                try {
+                    schema.filepath = fileName;
+                } catch {
+
+                }
                 //trigger onLoad
                 thes.onLoad(schema, fileName, false);
             } catch (e) {
@@ -49,8 +56,20 @@ module.exports = class file_schema_loader extends schema_loader{
                     logger.trace(`File ${fileName} is updated`);
                     delete require.cache[path.resolve(fileName)];
                     try {
-                        let schema = require(path.resolve(fileName));
-                        schema.filepath = fileName;
+                        //let schema = require(path.resolve(fileName));
+                        let schema = {}
+                        if(['.yaml','.yml'].indexOf(path.extname(fileName))>-1){
+                            schema = yaml.parse(fs.readFileSync(fileName, 'utf8'));
+                        } else if(['.json5'].indexOf(path.extname(fileName))>-1){
+                            schema = json5.parse(fs.readFileSync(fileName, 'utf8'));
+                        } else {
+                            schema = require(path.resolve(fileName))
+                        }
+                        try {
+                            schema.filepath = fileName;
+                        } catch {
+
+                        }
                         //trigger onLoad , force to replace current loaded schema
                         thes.onLoad(schema, fileName, true);
                     } catch (e) {

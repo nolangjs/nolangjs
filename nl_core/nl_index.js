@@ -1,4 +1,3 @@
-//index file for running a nolang app
 
 //enable json5 require
 require('json5/lib/register');
@@ -59,7 +58,6 @@ class nlCompiler {
 
         //init ajv
         this.initAjv();
-
         let compileReturn = {
             messages: [],
             errors: []
@@ -770,7 +768,7 @@ class nlCompiler {
     }*/
 
     validateCompileSchema(thisSchema, filename, compileReturn, force) {
-        logger.log("validate "+ filename);
+        logger.log("Validating "+ filename);
         // //delete cache of require
         // delete require.cache[path.resolve(file)];
         //
