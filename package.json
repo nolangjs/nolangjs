@@ -1,6 +1,6 @@
 {
   "name": "nolangjs",
-  "version": "1.2.1",
+  "version": "1.2.2",
   "description": "Nolang for javascript",
   "main": "nl_core/nl_cli.js",
   "bin": {
@@ -72,6 +72,7 @@
     "node-cron": "^3.0.1",
     "node-ipc": "^12.0.0",
     "nodemailer": "^6.7.7",
+    "open": "^10.1.0",
     "pg": "^8.10.0",
     "promise-mysql": "^5.2.0",
     "redis": "^4.2.0",

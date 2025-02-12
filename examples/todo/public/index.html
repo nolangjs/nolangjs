@@ -1,0 +1,114 @@
+<!DOCTYPE HTML>
+<html>
+<head>
+    <title>ToDo by Nolang</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body>
+<div class="container p-5">
+    <h1>ToDo List</h1>
+    <table class="table">
+        <thead>
+        <tr>
+            <th>Id</th>
+            <th>Who</th>
+            <th>What</th>
+            <th>Done</th>
+        </tr>
+        </thead>
+        <tbody id="todolist"></tbody>
+    </table>
+    <div>
+        <button class="btn btn-danger float-end" onclick="clearTodos()">Clear</button>
+        <fieldset class="border p-4 bg-light mt-4">
+            <legend>Add ToDo</legend>
+            <input id="who" class="form-control mb-2" placeholder="Who">
+            <input id="what" class="form-control mb-2" placeholder="What">
+            <button class="btn btn-primary float-end" onclick="addTodo()">Add</button>
+        </fieldset>
+    </div>
+</div>
+
+<script type="text/javascript">
+    function send(command) {
+        return fetch('/', {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json, text/plain, */*',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(command)
+        }).then(res => res.json());
+    }
+
+    const todolist = document.getElementById('todolist');
+
+    function addToDoToTable(todo) {
+        const newRow = todolist.insertRow();
+        newRow.insertCell().innerText = todo.$$objid;
+        newRow.insertCell().innerText = todo.who;
+        newRow.insertCell().innerText = todo.what;
+        newRow.insertCell().innerHTML = `<input type="checkbox" ${todo.done ? 'checked' : ''} onclick="doneTodo(this, '${todo.$$objid}')">`;
+    }
+
+    function addTodo() {
+        send({
+            $$schema: 'todo',
+            $$header: {
+                action: 'C',
+                debug: true
+            },
+            who: document.getElementById('who').value,
+            what: document.getElementById('what').value
+        }).then(res => {
+            addToDoToTable(res);
+        });
+    }
+
+    function loadTodos() {
+        send({
+            $$schema: 'todo',
+            $$header: {
+                action: 'R',
+                debug: true
+            }
+        }).then(res => {
+            todolist.innerHTML = '';
+            res.forEach(todo => {
+                addToDoToTable(todo);
+            });
+        });
+    }
+
+    function doneTodo(t, todoid) {
+        send({
+            $$schema: 'todo',
+            $$header: {
+                action: 'U',
+                debug: true,
+                filter: {
+                    $$objid: todoid
+                }
+            },
+            done: t.checked
+        });
+    }
+
+    function clearTodos() {
+        send({
+            $$schema: 'todo',
+            $$header: {
+                action: 'D',
+                filter: {
+                    done: true
+                }
+            }
+        }).then(() => {
+            loadTodos();
+        });
+    }
+
+    loadTodos();
+</script>
+</body>
+</html>

@@ -1,0 +1,43 @@
+{
+    name: "ToDo sample app",
+    schemas: [
+        {
+            "$id": "todo",
+            "type": "object",
+            "properties": {
+                "who": {
+                    "type": "string",
+                    "title": "Doer of Task"
+                },
+                "what": {
+                    "type": "string",
+                    "title": "What to do"
+                },
+                "done": {
+                    "type": "boolean",
+                    "title": "Is done?",
+                    "default": false
+                }
+            },
+            "required": ["who", "what"],
+            "additionalProperties": true
+        }
+    ],
+    storage: {
+        adapter: "json",
+        path: "data/todos.json"
+    },
+    endpoints: [
+        {
+            type: 'http',
+            static: './public',
+            port: 1000,
+            routes: [
+                {
+                    path: '/',
+                    method: 'post'
+                }
+            ]
+        }
+    ]
+}

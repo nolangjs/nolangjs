@@ -400,10 +400,12 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                 httpServer = https.createServer(credentials, app);
                 httpServer.listen(this.conf.https.port || 443, () => {
                     logger.log('######    Nolang HTTPS Server running on port '+(this.conf.https.port || 443) + '    ######');
+                    this.openBrowser(this.conf.https.port || 443, true)
                 });
             } else {
                 httpServer = app.listen(port, () => {
                     logger.log(`############     Nolang HTTP listening on port ${port}    ############`)
+                    this.openBrowser(port);
                 })
             }
 
@@ -476,6 +478,15 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
         } else {
             doListen();
         }
+    }
+
+    openBrowser(port, https) {
+        logger.log('"Hit F2 to launch the browser!" 🚀')
+        process.stdin.on('keypress', (str, key) => {
+            if (key.name === 'f2') {
+                import('open').then(open => open.default(https?'https':'http'+'://localhost:' + port, {newInstance: false, wait: true}))
+            }
+        });
     }
 
     reload() {
