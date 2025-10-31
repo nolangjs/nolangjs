@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Book Management App</title>
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            padding: 20px;
+        }
+        table {
+            margin-top: 20px;
+        }
+        form {
+            margin-bottom: 20px;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="text-center">Book Management App</h1>
+
+    <!-- Create Book Form -->
+    <form id="createBookForm" class="mb-4">
+        <h2>Create a New Book</h2>
+        <div class="form-group">
+            <label for="createTitle">Title:</label>
+            <input type="text" id="createTitle" name="Title" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="createAuthor">Author:</label>
+            <input type="text" id="createAuthor" name="Author" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="createPublishedDate">Published Date:</label>
+            <input type="date" id="createPublishedDate" name="PublishedDate" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="createSummary">Summary:</label>
+            <textarea id="createSummary" name="Summary" class="form-control" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Create Book</button>
+    </form>
+
+    <!-- Update Book Form -->
+    <form id="updateBookForm" class="mb-4" style="display: none;">
+        <h2>Update a Book</h2>
+        <input type="hidden" id="updateId" name="id">
+        <div class="form-group">
+            <label for="updateTitle">Title:</label>
+            <input type="text" id="updateTitle" name="Title" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="updateAuthor">Author:</label>
+            <input type="text" id="updateAuthor" name="Author" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="updatePublishedDate">Published Date:</label>
+            <input type="date" id="updatePublishedDate" name="PublishedDate" class="form-control" required>
+        </div>
+        <div class="form-group">
+            <label for="updateSummary">Summary:</label>
+            <textarea id="updateSummary" name="Summary" class="form-control" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-primary">Update Book</button>
+        <button type="button" class="btn btn-secondary" onclick="cancelUpdate()">Cancel</button>
+    </form>
+
+    <!-- List of Books -->
+    <h2>List of Books</h2>
+    <table id="bookTable" class="table table-striped">
+        <thead>
+        <tr>
+            <th>Title</th>
+            <th>Author</th>
+            <th>Published Date</th>
+            <th>Summary</th>
+            <th>Actions</th>
+        </tr>
+        </thead>
+        <tbody>
+        <!-- Books will be dynamically added here -->
+        </tbody>
+    </table>
+</div>
+
+<!-- Bootstrap JS, Popper.js, and jQuery -->
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<script>
+    const bookTable = document.getElementById('bookTable').getElementsByTagName('tbody')[0];
+    const createBookForm = document.getElementById('createBookForm');
+    const updateBookForm = document.getElementById('updateBookForm');
+
+    // Fetch and display books
+    async function fetchBooks() {
+        const response = await fetch('/book/list');
+        const books = await response.json();
+        bookTable.innerHTML = '';
+        books.forEach(book => {
+            const row = bookTable.insertRow();
+            row.innerHTML = `
+                <tr>
+                    <td>${book.Title}</td>
+                    <td>${book.Author}</td>
+                    <td>${book.PublishedDate}</td>
+                    <td>${book.Summary}</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="editBook('${book.$$objid}')">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="deleteBook('${book.$$objid}')">Delete</button>
+                    </td>
+                </tr>
+            `;
+        });
+    }
+
+    // Create book
+    createBookForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const formData = new FormData(createBookForm);
+        const response = await fetch('/book/create', {
+            method: 'POST',
+            body: new URLSearchParams(formData)
+        });
+        if (response.ok) {
+            fetchBooks();
+            createBookForm.reset();
+        }
+    });
+
+    // Edit book
+    async function editBook(id) {
+        const response = await fetch(`/book/${id}`);
+        const books = await response.json();
+        const book = books[0];
+        document.getElementById('updateId').value = book.$$objid;
+        document.getElementById('updateTitle').value = book.Title;
+        document.getElementById('updateAuthor').value = book.Author;
+        document.getElementById('updatePublishedDate').value = book.PublishedDate;
+        document.getElementById('updateSummary').value = book.Summary;
+        createBookForm.style.display = 'none';
+        updateBookForm.style.display = 'block';
+    }
+
+    // Update book
+    updateBookForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const id = document.getElementById('updateId').value;
+        const formData = new FormData(updateBookForm);
+        const response = await fetch(`/book/update/${id}`, {
+            method: 'PUT',
+            body: new URLSearchParams(formData)
+        });
+        if (response.ok) {
+            fetchBooks();
+            updateBookForm.reset();
+            updateBookForm.style.display = 'none';
+            createBookForm.style.display = 'block';
+        }
+    });
+
+    // Cancel update
+    function cancelUpdate() {
+        updateBookForm.reset();
+        updateBookForm.style.display = 'none';
+        createBookForm.style.display = 'block';
+    }
+
+    // Delete book
+    async function deleteBook(id) {
+        const response = await fetch(`/book/delete/${id}`, {
+            method: 'DELETE'
+        });
+        if (response.ok) {
+            fetchBooks();
+        }
+    }
+
+    // Initial fetch of books
+    fetchBooks();
+</script>
+</body>
+</html>

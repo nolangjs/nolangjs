@@ -24,9 +24,13 @@ class storage_nedb extends storage_main {
 
     async create(schema, packet){
         logger.log("create a "+ schema.$id, packet);
-        delete packet.$$record;
         packet._id = packet.$$objid;
-        delete packet.$$objid;
+
+        Object.keys(packet).forEach(function (key) {
+            if (key.startsWith('$$')) {
+                delete packet[key];
+            }
+        });
         return await new Promise((resolve, reject) => {
             this.db.insert(packet, (err, newDoc) => {
                 if(err) {

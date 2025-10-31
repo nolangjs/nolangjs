@@ -792,6 +792,10 @@
                 "destination_id": {
                     "type": "string"
                 },
+                "debug": {
+                    "type": "boolean",
+                    "description": "if true show script and response in the debugger"
+                },
                 "modal": {
                     "type": "boolean",
                     "description": "if true content must be located in a modal div"

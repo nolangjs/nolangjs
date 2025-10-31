@@ -17,14 +17,14 @@ class storage_mongodb extends storage_main {
 
     async initMongo() {
         if (!mongod) {
-            console.time("initMongo1");
+            //console.time("initMongo1");
             this.client = await MongoClient.connect(this.storage.url, {maxPoolSize: 100, useNewUrlParser: true});
-            console.timeEnd("initMongo1");
+            //console.timeEnd("initMongo1");
 
-            console.time("initMongo2");
+            //console.time("initMongo2");
             this.db = this.client.db(this.storage.database);
             mongod = this.db;
-            console.timeEnd("initMongo2");
+            //console.timeEnd("initMongo2");
         } else {
             this.db = mongod;
         }
@@ -41,6 +41,7 @@ class storage_mongodb extends storage_main {
 
         //delete $$record
         delete packet.$$record;
+        delete packet.$$res;
         delete packet.$$objid;
 
         // var newId;
@@ -71,9 +72,9 @@ class storage_mongodb extends storage_main {
 
         await this.initMongo();
 
-        console.time('mongoCollection')
+        //console.time('mongoCollection')
         // let MyCollection = this.db.collection(collection);
-        console.timeEnd('mongoCollection')
+        //console.timeEnd('mongoCollection')
 
         if (filter) {
             if (filter.$$objid) {
@@ -88,7 +89,7 @@ class storage_mongodb extends storage_main {
             options.sort = packet.$$header.sort
         }
 
-        console.time("mongoFind");
+        //console.time("mongoFind");
         let result;
         if (this.storage.aggregate) {
             result = await this.db.collection(this.storage.collection || schema.$id).aggregate(this.storage.aggregate.pipeline).toArray();
@@ -99,12 +100,12 @@ class storage_mongodb extends storage_main {
                 delete item._id;
             });
         }
-        console.timeEnd("mongoFind");
+        //console.timeEnd("mongoFind");
 
         //add $$objid to all objects of return collection using _id
-        console.time("mongoMap");
+        //console.time("mongoMap");
 
-        console.timeEnd("mongoMap");
+        //console.timeEnd("mongoMap");
 
         if(filterrulesMethod)
             result = result.filter(filterrulesMethod);
@@ -125,9 +126,9 @@ class storage_mongodb extends storage_main {
             }
         }
 
-        console.time("mongoCount");
+        //console.time("mongoCount");
         let result = await this.db.collection(schema.$id).countDocuments(filter);
-        console.timeEnd("mongoCount");
+        //console.timeEnd("mongoCount");
 
         return {count: result};
     }
@@ -188,9 +189,12 @@ class storage_mongodb extends storage_main {
             }
         }
 
-        delete obj.packet.$$record;
-        delete obj.packet.$$schema;
-        delete obj.packet.$$header;
+        Object.keys(obj.packet).forEach(key => {
+            if (key.startsWith('$$')) {
+                delete obj.packet[key];
+            }
+        });
+
         logger.trace("UPDATING mongo", {packet:obj.packet, filter: obj.filter})
         if (obj.filter === {}) {
             logger.error('preventing to update without any filter')

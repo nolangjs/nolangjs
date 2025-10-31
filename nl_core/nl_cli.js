@@ -1,6 +1,42 @@
 #! /usr/bin/env node
 // #! /usr/bin/env node --no-warnings
 
+//logger
+const nl_logger = require('./nl_logger');
+const logger = new nl_logger();
+global.logger = logger;
+/*
+process.on('uncaughtException', err => {
+    console.error("Uncaught Exception:", err);
+    // Optionally, exit the process after logging
+    //process.exit(1);
+});
+
+process.on('unhandledRejection', reason => {
+    console.error("Unhandled Rejection:", reason);
+    // Optional: Exit the process for consistency
+    // process.exit(1);
+});
+
+const originalEmitWarning = process.emitWarning;
+process.emitWarning = (warning, ...args) => {
+    if (warning instanceof Error && warning.name === 'DeprecationWarning') {
+        // Skip logging to the console
+        return;
+    } else if (args[0] === 'DeprecationWarning') {
+        return;
+    }
+    // Call the original emitWarning for other warnings
+    originalEmitWarning(warning, ...args);
+};*/
+
+/*process.on('warning', (warning) => {
+    if (warning.name === 'DeprecationWarning') {
+        // Ignore specific warnings or handle them differently
+        return false;
+    }
+    logger.warn(warning.message); // Log other warnings
+});*/
 
 const fs = require('fs');
 const path = require('path');

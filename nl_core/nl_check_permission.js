@@ -56,7 +56,7 @@ async function checkRolesPermission(roles, packet, env) {
                                 // [this.conf.user.passwordField]: _password
                             },
                             cache: {
-                                key: new Buffer( _username+_password).toString('base64'), //fixme encrypt it
+                                key: Buffer.from( _username+_password).toString('base64'), //fixme encrypt it
                                 time: 100
                             }
                         }
@@ -128,7 +128,7 @@ async function checkRolesPermission(roles, packet, env) {
                             [this.conf.user.token.tokenField]: token,
                         },
                         cache: {
-                            key: new Buffer(token).toString('base64'), //fixme encrypt it
+                            key: Buffer.from(token).toString('base64'), //fixme encrypt it
                             time: 100
                         }
                     }
@@ -163,7 +163,7 @@ async function checkRolesPermission(roles, packet, env) {
                     $$objid: userid,
                 },
                 cache: {
-                    key: new Buffer(userid).toString('base64'), //fixme encrypt it
+                    key: Buffer.from(userid).toString('base64'), //fixme encrypt it
                     time: 100
                 }
             }

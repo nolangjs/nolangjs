@@ -248,6 +248,15 @@
                                 "description": "path of static files, could be relative or absolute",
                                 "type": "string"
                             },
+                            "cookie": {
+                                "description": "cookie parser options",
+                                "properties": {
+                                    "secret": {
+                                        "type": "string",
+                                        "description": "This is optional and if not specified, will not parse signed cookies"
+                                    }
+                                }
+                            },
                             "cors": {
                                 "description": "CORS options if needed CORS",
                                 "type": "object",

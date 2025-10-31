@@ -1,4 +1,3 @@
-
 //enable json5 require
 require('json5/lib/register');
 
@@ -17,10 +16,7 @@ const {JSONPath} = require('jsonpath-plus');
 //uuid
 const uuid = require('uuid-random');
 
-//logger
-const nl_logger = require('./nl_logger');
-const logger = new nl_logger();
-global.logger = logger;
+const logger = global.logger;
 
 
 //rule_runner
@@ -560,6 +556,9 @@ class nlCompiler {
         try {
             await this.preparePacket(req_packet, _ssCompiler, false);
 
+            /**
+             * todo add $$import to schema
+             */
             if(req_packet.$$import) {
                 req_packet = this.ajv.getSchema(req_packet.$$import).schema;
             }
@@ -876,6 +875,18 @@ class nlCompiler {
                 return {success: false, message: "$$header not exists!", error: 'MISSING_$$HEADER'}*/
         }
 
+        /** values in header
+         */
+        /*if(header.values) {
+            if(is_Array(header.values)) {
+
+            } else {
+                if(header.values.assign) {
+
+                }
+            }
+        }*/
+
         /** check cache
          * if there is cache in header means cache the reply by cache.key for cache.time seconds in Redis
          */
@@ -925,6 +936,15 @@ class nlCompiler {
             /*if(!action) {
                 return {success: false, message: "$$header.action not exists!", error: 'MISSING_$$HEADER.ACTION'}
             }*/
+
+
+            /**
+             * todo add $$assign to schema
+             */
+            if(req_packet.$$assign) {
+                Object.assign(req_packet, req_packet.$$assign)
+                delete req_packet.$$assign;
+            }
 
 
 
@@ -1237,7 +1257,7 @@ class nlCompiler {
         logger.log("handlePacket:")
         logger.log('packet',packet)
         logger.log('values',values)
-        console.time("handleP");
+        //console.time("handleP");
 
         if(values) {
             let _values = {... values};
@@ -1272,7 +1292,7 @@ class nlCompiler {
         }
 
         logger.error(packet)
-        console.timeEnd("handleP");
+        //console.timeEnd("handleP");
 
         return packet;
     }
@@ -1351,7 +1371,7 @@ class nlCompiler {
 
             //check permission
             if(schema.$$roles && this.conf.user?.authenticate && !ignoreUser) {
-                console.time("checkpermission");
+                //console.time("checkpermission");
                 let checkRolesPermission = require('./nl_check_permission');
                 let checkResult = await checkRolesPermission.bind(this)(schema.$$roles, packet, env);
                 if(!checkResult.hasPermission) {
@@ -1389,7 +1409,7 @@ class nlCompiler {
                         error: checkResult.error
                     };
                 }
-                console.timeEnd("checkpermission");
+                //console.timeEnd("checkpermission");
             }
 
             //create
@@ -1801,5 +1821,7 @@ function is_Array(item) {
 }
 
 module.exports = nlCompiler;
+
+
 
 

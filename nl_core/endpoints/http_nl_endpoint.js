@@ -18,7 +18,8 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
 
     async start() {
         const app = express();
-        app.use(cookieParser());
+
+        app.use(cookieParser(this.conf.cookie?.secret));
 
         const port = this.conf.port;
 
@@ -108,13 +109,13 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
 
             // app.use(bodyParser.json());
             let bp = 'json';
-            let opt = {};
+            let opt = {extended: true};
             if(route.bodyParser) {
                 if(typeof route.bodyParser === 'string')
                     bp = route.bodyParser;
                 else {
                     bp = route.bodyParser.method;
-                    opt = route.bodyParser.opt || {};
+                    opt = route.bodyParser.opt || {extended: true};
                 }
             }
 
@@ -377,6 +378,16 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                                 delete nlresponse?.$$res;
                                 res.send(nlresponse);
                             }
+                        }).catch(error => {
+                            let msg = error.message;
+                            if(error.message === 'cookieParser("secret") required for signed cookies') {
+                                msg = 'To set signed cookies please set a secert in endpoint.cookie.secret'
+                            }
+                            res.status(500).json({
+                                success: false,
+                                message: msg,
+                            });
+                            logger.error(msg)
                         })
                     }
                 }

@@ -1,0 +1,101 @@
+{
+    "name": "RESTful API Sample",
+    "schemas": [
+        {
+            "$id": "book",
+            "properties": {
+                "Title": { "type": "string", "minLength": 1 },
+                "Author": { "type": "string", "minLength": 5 },
+                "PublishedDate": { "type": "date" },
+                "Summary": {
+                    "type": "string",
+                    "minLength": 20,
+                    "maxLength": 200
+                }
+            },
+            "required": ["Title", "Author", "PublishedDate"]
+        }
+    ],
+    "storage": {
+        "adapter": "mongodb",
+        "url": "mongodb://localhost:27017",
+        "database": "nolangtest",
+        "id": "_id"
+    },
+    "endpoints": [
+        {
+            "type": "http",
+            "port": 3000,
+            "static": "./public",
+            "routes": [
+                {
+                    "path": "/book/list",
+                    "method": "get",
+                    "return": {
+                        "$$schema": "book",
+                        "$$header": {
+                            "action": "R"
+                        }
+                    }
+                },
+                {
+                    "path": "/book/:id",
+                    "method": "get",
+                    "return": {
+                        "$$schema": "book",
+                        "$$header": {
+                            "action": "R",
+                            "filter": {
+                                "$$objid": "{{env.request.params.id}}"
+                            }
+                        }
+                    }
+                },
+                {
+                    "path": "/book/create",
+                    "method": "post",
+                    "bodyParser": "urlencoded",
+                    "return": {
+                        "$$schema": "book",
+                        "$$header": {
+                            "action": "C",
+                            "debug": true
+                        },
+                        "$$assign": "{{env.request.body2}}"
+                    }
+                },
+                {
+                    "path": "/book/update/:id",
+                    "method": "put",
+                    "bodyParser": "urlencoded",
+                    "return": {
+                        "$$schema": "book",
+                        "$$header": {
+                            "action": "U",
+                            "filter": {
+                                "$$objid": "{{env.request.params.id}}"
+                            }
+                        },
+                        "Title": "{{env.request.body.Title}}",
+                        "Author": "{{env.request.body.Author}}",
+                        "PublishedDate": "{{env.request.body.PublishedDate}}",
+                        "Summary": "{{env.request.body.Summary}}"
+                    }
+                },
+                {
+                    "path": "/book/delete/:id",
+                    "method": "delete",
+                    "return": {
+                        "$$schema": "book",
+                        "$$header": {
+                            "action": "D",
+                            "filter": {
+                                "$$objid": "{{env.request.params.id}}"
+                            }
+                        }
+                    }
+                }
+            ]
+        }
+    ]
+}

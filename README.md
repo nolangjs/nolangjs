@@ -141,6 +141,9 @@ nolang -v
 # Documentation
 Refer to Nolang website by address https://www.nolang.org.
 
+# Examples
+Check out some example programs created with Nolang in our [Examples](./examples) folder.
+
 
 # Share Your Feedback
 We value your input! If you have suggestions, issues, or comments about our package, please don't hesitate to reach out. Your feedback helps us improve. You can connect us with info[@]nolang.org.
