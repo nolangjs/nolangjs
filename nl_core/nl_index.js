@@ -33,6 +33,8 @@ const ST = require('stjs');
 
 const entitySchema = require('../basic_schemas/nolang.entity.schema.json');
 const appSchema = require('../basic_schemas/nolang.app.schema.json');
+const checkRolesPermission = require("./nl_check_permission");
+const {TokenExpiredError} = require("jsonwebtoken");
 class nlCompiler {
 
     loadedSchemas = [];
@@ -908,7 +910,6 @@ class nlCompiler {
             return this.runMicroservice(ms, req_packet);
         }
 
-
         /*if(!Schema){
             logger.error("dataPacket: no Schema "+req_packet.$$schema);
             return {success:false, errorcode: 'SCHEMA_NOT_EXISTS', message: "No Schema with id "+req_packet.$$schema};
@@ -918,12 +919,6 @@ class nlCompiler {
 
             // schema = this.handlePacket(schema, schema);
 
-            schema = await this.preparePacket(schema, {env: _env, data: req_packet, schema: schema}, false);
-
-            //prepare packet
-            req_packet = await this.preparePacket(req_packet, {env: _env, data: req_packet, schema: schema}, true);
-
-
             let action = header?.action;
             /*if(!action){
                 let renderedView = await _ssCompiler.renderViewTemp(req_packet, data_message);
@@ -932,6 +927,66 @@ class nlCompiler {
                  }*!/
                 return renderedView;
             }*/
+
+            /* check permission */
+            if(schema.$$roles && this.conf.user?.authenticate /*&& !ignoreUser*/) {
+                //console.time("checkpermission");
+                let checkRolesPermission = require('./nl_check_permission');
+                let checkResult = await checkRolesPermission.bind(this)(schema.$$roles, req_packet, _env);
+                if(!checkResult.hasPermission) {
+                    //return this.ajv.errors;
+                    /*if(!this.currentUser){
+                        // this.runRuleOf(schema, 'error')
+                        return {
+                            "success": false,
+                            "requireAuthentication": true,
+                            "message": "Need Authentication"
+                        }
+                    } else {
+                        return {
+                            "success": false,
+                            "message": "No Permission to data action"
+                        }
+                    }*/
+                    if(checkResult.token) {
+                        return {
+                            success: true,
+                            token: checkResult.token,
+                            message: 'Save this token and use it in next requests.$$header.user.token'
+                        };
+                    }
+                    if(checkResult.cookies) {
+                        return {
+                            success: true,
+                            $$res: {
+                                cookies: checkResult.cookies
+                            }
+                        };
+                    }
+                    if(checkResult.error.name === 'TokenExpiredError') {
+                        return {
+                            success: false,
+                            error: checkResult.error.message,
+                            $$res: {
+                                clearCookies: {
+                                    [checkResult.error.message.split(' ')[0]]: {}
+                                }
+                            }
+                        };
+                    }
+                    return {
+                        success: false,
+                        error: checkResult.error
+                    };
+                }
+                //console.timeEnd("checkpermission");
+            }
+
+            schema = await this.preparePacket(schema, {env: _env, data: req_packet, schema: schema}, false);
+
+            //prepare packet
+            req_packet = await this.preparePacket(req_packet, {env: _env, data: req_packet, schema: schema}, true);
+
 
             /*if(!action) {
                 return {success: false, message: "$$header.action not exists!", error: 'MISSING_$$HEADER.ACTION'}
@@ -946,8 +1001,6 @@ class nlCompiler {
                 delete req_packet.$$assign;
             }
 
-
-
             if ('M'.indexOf(action) >= 0) {
                 data_message = await _ssCompiler.callMethod(req_packet, _env);
                 // header = req_packet.data.$$header;
@@ -960,7 +1013,7 @@ class nlCompiler {
 
             /*//Length of data array
             let returnLength = false;
-            if('L'.indexOf(action) >= 0) {
+            if('N'.indexOf(action) >= 0) {
                 returnLength = true;
                 header.action = 'R';
                 action = 'R';
@@ -1024,18 +1077,19 @@ class nlCompiler {
             }
 
             /*if(returnLength) {
-            header.action = 'L';
+            header.action = 'N';
             data_message = data_message?.length;
         }*/
 
 
             //check for push to listeners //todo except action R
+            //todo remove expired listeners after refresh
             if(data_message && action !== 'R' && this.listeners.hasOwnProperty(req_packet.$$schema)){
                 for(let lis of this.listeners[req_packet.$$schema]){
                     //check header filter
                     let check = true;
                     if(lis.header?.filter){
-
+                        lis.header.filter = await this.preparePacket(lis.header.filter, {env: _env, data: req_packet, schema: schema}, true);
                         for(let key in lis.header.filter) {
                             if(Array.isArray(data_message)) {
                                 data_message.map(doc=>{
@@ -1049,7 +1103,12 @@ class nlCompiler {
                     //todo check filterrules
 
                     if(check && lis.listener.handler) {
-                        lis.listener.handler(data_message);
+                        //render view
+                        let _data_message = {...data_message}
+                        if(header?.view) {
+                            _data_message = await this.renderView(req_packet, data_message, _env);
+                        }
+                        lis.listener.handler(_data_message);
                     }
                 }
             }
@@ -1090,11 +1149,6 @@ class nlCompiler {
             logger.log(data_message);
         }
 
-        //render view
-        if(header?.view) {
-            data_message = await this.renderView(req_packet, data_message, _env);
-        }
-
         //return in header
         if(header?.return) {
             data_message = this.handlePacket(header.return, {data:data_message, env: _env});
@@ -1103,6 +1157,11 @@ class nlCompiler {
         //set cache
         if(header?.cache && this._nl_cache) {
             this._nl_cache.redisClient.set(header.cache?.key || _env?.request?.url, JSON.stringify(data_message), {EX: header.cache.time});
+        }
+
+        //render view
+        if(header?.view) {
+            data_message = await this.renderView(req_packet, data_message, _env);
         }
 
         return data_message;
@@ -1338,10 +1397,16 @@ class nlCompiler {
                 storage = {... this.conf.storage};
             }
 
-            if(schema.$$storage){
-                Object.assign(storage, schema.$$storage);
-                if(schema.$$storage.adapter === 'default') {
-                    storage.adapter = this.conf.storage.adapter;
+            if(schema.$$storage) {
+                if(schema.$$storage.hasOwnProperty('adapter')) {
+                    if(storage.adapter === schema.$$storage.adapter || schema.$$storage.adapter === 'default') {
+                        Object.assign(storage, schema.$$storage);
+                        if(schema.$$storage.adapter === 'default') {
+                            storage.adapter = this.conf.storage.adapter;
+                        }
+                    } else {
+                        storage = {... schema.$$storage}
+                    }
                 }
             } else {
                 logger.debug("storage is not set for " + packet.$$schema + ", default storage is set for it");
@@ -1366,50 +1431,6 @@ class nlCompiler {
                     return {success: false, error: 'storage detection unsuccessful.'}
                 }
                 this.adapters[packet.$$schema] = adapter;
-            }
-
-
-            //check permission
-            if(schema.$$roles && this.conf.user?.authenticate && !ignoreUser) {
-                //console.time("checkpermission");
-                let checkRolesPermission = require('./nl_check_permission');
-                let checkResult = await checkRolesPermission.bind(this)(schema.$$roles, packet, env);
-                if(!checkResult.hasPermission) {
-                    //return this.ajv.errors;
-                    /*if(!this.currentUser){
-                        // this.runRuleOf(schema, 'error')
-                        return {
-                            "success": false,
-                            "requireAuthentication": true,
-                            "message": "Need Authentication"
-                        }
-                    } else {
-                        return {
-                            "success": false,
-                            "message": "No Permission to data action"
-                        }
-                    }*/
-                    if(checkResult.token) {
-                        return {
-                            success: true,
-                            token: checkResult.token,
-                            message: 'Save this token and use it in next requests.$$header.user.token'
-                        };
-                    }
-                    if(checkResult.cookies) {
-                        return {
-                            success: true,
-                            $$res: {
-                                cookies: checkResult.cookies
-                            }
-                        };
-                    }
-                    return {
-                        success: false,
-                        error: checkResult.error
-                    };
-                }
-                //console.timeEnd("checkpermission");
             }
 
             //create
@@ -1511,13 +1532,6 @@ class nlCompiler {
             //read
             else if(header.action === 'R') {
                 //check onRead event
-                /*if(schema.$$events) {
-                    if (schema.$$events.onRead) {
-                        let deepcopy = {...schema.$$events.onRead};
-                        await this.runPacket(this.handlePacket(deepcopy, packet));
-                    }
-                }*/
-                //await this.runRuleOf(schema, 'onRead', packet);
                 let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet, env);
                 if(_result===false) {
                     return {
@@ -1540,7 +1554,7 @@ class nlCompiler {
                 return data;
             }
             //count
-            else if(header.action === 'L') {
+            else if(header.action === 'N') {
                 //check onRead event
                 /*if(schema.$$events) {
                     if (schema.$$events.onRead) {

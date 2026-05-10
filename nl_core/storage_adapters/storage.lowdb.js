@@ -103,11 +103,11 @@ class storage_lowdb extends storage_main {
             res = res.sort(orderBy(packet.$$header.sort));
         }
 
-        return res.value();
+        return JSON.parse(JSON.stringify(res.value()));
     }
 
-    async count(schema, filter, filterrulesMethod) {
-        let result = await this.read(schema, filter, filterrulesMethod);
+    async count(schema, filter, filterrulesMethod, packet) {
+        let result = await this.read(schema, filter, filterrulesMethod, packet);
         return {count: result.length}
     }
 

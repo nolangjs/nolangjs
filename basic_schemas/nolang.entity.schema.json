@@ -57,7 +57,7 @@
         "ssActions": {
             "$id": "ssActions",
             "type": "string",
-            "description": "C:Create, R:Retrieve, U:Update, D:Delete, V:, W:, S:Search",
+            "description": "C:Create, R:Retrieve, U:Update, D:Delete, V:View, W:Editable vieW, S:Search, M:Method, L:Login, N: couNt",
             "enum": [
                 "C",
                 "R",
@@ -66,7 +66,10 @@
                 "V",
                 "W",
                 "S",
-                "M"
+                "M",
+                "L",
+                "N",
+                "A"
             ]
         },
         "ssMethod": {
@@ -257,19 +260,7 @@
                     "type": "array",
                     "description": "array of access to actions",
                     "items": {
-                        "type": "string",
-                        "description": "C:Create, R:Retrieve, U:Update, D:Delete, V:View, W:Empty Form, S:Search, A:All",
-                        "enum": [
-                            "C",
-                            "R",
-                            "U",
-                            "D",
-                            "V",
-                            "W",
-                            "S",
-                            "M",
-                            "A"
-                        ]
+                        "$ref": "ssActions"
                     },
                     "default": "A"
                 },
@@ -289,19 +280,7 @@
                                 "type": "array",
                                 "description": "array of access to actions",
                                 "items": {
-                                    "type": "string",
-                                    "description": "C:Create, R:Retrieve, U:Update, D:Delete, V:View, W:Empty Form, S:Search, A:All",
-                                    "enum": [
-                                        "C",
-                                        "R",
-                                        "U",
-                                        "D",
-                                        "V",
-                                        "W",
-                                        "S",
-                                        "M",
-                                        "A"
-                                    ]
+                                    "$ref": "ssActions"
                                 },
                                 "default": "A"
                             }
@@ -630,17 +609,7 @@
                                 "type": "string"
                             },
                             "action": {
-                                "type": "string",
-                                "enum": [
-                                    "C",
-                                    "U",
-                                    "D",
-                                    "R",
-                                    "W",
-                                    "X",
-                                    "S",
-                                    "M"
-                                ]
+                                "$ref": "ssActions"
                             },
                             "destination_id": {
                                 "type": "string"
@@ -1019,7 +988,7 @@
                             "json"
                         ]
                     },
-                    "path1": {
+                    "path": {
                         "type": "string",
                         "description": "relative path to json file"
                     }
@@ -1309,7 +1278,70 @@
             "type": "string"
         },
         "faker": {
-            "type": "string"
+            "type": "string",
+            "enum": [
+                "name.firstName",
+                "name.firstName('male')",
+                "name.firstName('female')",
+                "name.lastName",
+                "name.middleName",
+                "name.fullName",
+                "name.findName",
+                "name.jobTitle",
+                "name.jobType",
+                "name.jobArea",
+                "name.jobDescriptor",
+                "name.jobAbbreviation",
+
+                "address.city",
+                "address.cityName",
+                "address.streetName",
+                "address.streetAddress",
+                "address.zipCode",
+                "address.country",
+                "address.state",
+                "address.latitude",
+                "address.longitude",
+
+                "internet.email",
+                "internet.userName",
+                "internet.domainName",
+                "internet.url",
+                "internet.ip",
+                "internet.mac",
+                "internet.password",
+
+                "phone.phoneNumber",
+                "phone.phoneNumberFormat",
+
+                "date.past",
+                "date.future",
+                "date.recent",
+                "date.month",
+                "date.weekday",
+
+                "company.companyName",
+                "company.catchPhrase",
+                "company.bs",
+
+                "commerce.productName",
+                "commerce.department",
+                "commerce.price",
+                "commerce.productAdjective",
+                "commerce.productMaterial",
+                "commerce.product",
+
+                "datatype.number",
+                "datatype.boolean",
+
+                "random.word",
+                "random.words",
+                "random.number",
+                "random.alphaNumeric",
+                "random.locale",
+                "random.uuid"
+            ]
+
         },
         "contentMediaType": {
             "type": "string"

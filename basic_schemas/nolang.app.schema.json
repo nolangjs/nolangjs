@@ -246,7 +246,7 @@
                             },
                             "static": {
                                 "description": "path of static files, could be relative or absolute",
-                                "type": "string"
+                                "type": ["string","array"]
                             },
                             "cookie": {
                                 "description": "cookie parser options",

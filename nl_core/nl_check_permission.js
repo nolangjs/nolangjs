@@ -31,7 +31,7 @@ async function checkRolesPermission(roles, packet, env) {
     }
 
     //header.user
-    if (header.user) {
+    if (header?.user) {
         if (header.user.roles) {
             if(!this.conf.user?.directRoles) {
                 ret.error = "No permission to use roles in request directly. conf.user.directRoles is false";
@@ -42,11 +42,13 @@ async function checkRolesPermission(roles, packet, env) {
         else if (header.user.token) {
             token = header.user.token;
         }
-        else if (header.user.username) {
-            if (header.user.password) {
+        else if (header.user.hasOwnProperty(this.conf.user.usernameField) || header.user.hasOwnProperty('username') || header.user.hasOwnProperty('user')) {
+            if (header.user.hasOwnProperty(this.conf.user.passwordField) || header.user.hasOwnProperty('password') || header.user.hasOwnProperty('pass')) {
                 if (this.conf.user?.schema) {
                     let _username = header.user[this.conf.user.usernameField] || header.user.username || header.user.user;
-                    let _password = header.user[this.conf.user.passwordField] || header.user.password || header.user.pass;
+                    let _password = header.user.hasOwnProperty(this.conf.user.passwordField)?header.user[this.conf.user.passwordField]
+                        : header.user.hasOwnProperty('password') ? header.user.password
+                            : header.user.hasOwnProperty('pass') ? header.user.pass : undefined;
                     let _users = await this.dataPacket({
                         $$schema: this.conf.user.schema,
                         $$header: {
@@ -55,7 +57,7 @@ async function checkRolesPermission(roles, packet, env) {
                                 [this.conf.user.usernameField]: _username,
                                 // [this.conf.user.passwordField]: _password
                             },
-                            cache: {
+                            cache1111: {
                                 key: Buffer.from( _username+_password).toString('base64'), //fixme encrypt it
                                 time: 100
                             }
@@ -162,10 +164,10 @@ async function checkRolesPermission(roles, packet, env) {
                 filter: {
                     $$objid: userid,
                 },
-                cache: {
+                /*cache: {
                     key: Buffer.from(userid).toString('base64'), //fixme encrypt it
                     time: 100
-                }
+                }*/
             }
         }, null, {}, true);
         if (_users.length < 1) {
@@ -173,7 +175,7 @@ async function checkRolesPermission(roles, packet, env) {
             ret.error = 'No user with this id '+userid;
             return ret;
         }
-        user = _users[0];
+        user = {... _users[0]};
         delete user[this.conf.user.passwordField];
         userRoles = user[this.conf.user.rolesField];
     }

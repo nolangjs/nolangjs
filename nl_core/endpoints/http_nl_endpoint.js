@@ -387,7 +387,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                                 success: false,
                                 message: msg,
                             });
-                            logger.error(msg)
+                            logger.error(msg, error)
                         })
                     }
                 }
