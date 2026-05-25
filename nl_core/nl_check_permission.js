@@ -43,10 +43,10 @@ async function checkRolesPermission(roles, packet, env) {
             token = header.user.token;
         }
         else if (header.user.hasOwnProperty(this.conf.user.usernameField) || header.user.hasOwnProperty('username') || header.user.hasOwnProperty('user')) {
-            if (header.user.hasOwnProperty(this.conf.user.passwordField) || header.user.hasOwnProperty('password') || header.user.hasOwnProperty('pass')) {
+            if (!this.conf.user.hasOwnProperty('passwordField') || (header.user.hasOwnProperty(this.conf.user.passwordField) || header.user.hasOwnProperty('password') || header.user.hasOwnProperty('pass')) ){
                 if (this.conf.user?.schema) {
                     let _username = header.user[this.conf.user.usernameField] || header.user.username || header.user.user;
-                    let _password = header.user.hasOwnProperty(this.conf.user.passwordField)?header.user[this.conf.user.passwordField]
+                    let _password = this.conf.user.hasOwnProperty('passwordField') && header.user.hasOwnProperty(this.conf.user.passwordField)?header.user[this.conf.user.passwordField]
                         : header.user.hasOwnProperty('password') ? header.user.password
                             : header.user.hasOwnProperty('pass') ? header.user.pass : undefined;
                     let _users = await this.dataPacket({
@@ -69,7 +69,7 @@ async function checkRolesPermission(roles, packet, env) {
                         return ret;
                     }
                     let _user = _users[0];
-                    if (_user[this.conf.user.passwordField] !== _password) {
+                    if (this.conf.user.hasOwnProperty('passwordField') && _user[this.conf.user.passwordField] !== _password) {
                         logger.error('No user with this username password', _username);
                         ret.error = 'No user with this username password';
                         return ret;

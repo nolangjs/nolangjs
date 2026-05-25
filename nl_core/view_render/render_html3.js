@@ -82,7 +82,8 @@ async function render_object(obj,nl_engine, env) {
                     let _propData = {...propData};
                     console.error(this.currentuser)
                     _propData.$$header.user = packet.$$header?.user;// {token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlcyI6WyJBRE1JTiJdLCJpYXQiOjE3MTM2ODYyNjAsImV4cCI6MTcxMzc1ODI2MH0.IW5bDgjJTXxWckcGB2Y3vVcagLYmwzw7nVbLA_cKdrY'}
-                    let _packet = await nl_engine.dataPacket(_propData, _schema, env)
+                    // let _packet = await nl_engine.dataPacket(_propData, _schema, env)
+                    let _packet = await nl_engine.runPacket(_propData, null, env, false, true)
                     let pview = getView(_schema, propData.$$header , parentView);
                     let innerCell1 = await pushObject(_schema, _packet, null, pview, null, null, nl_engine, env);
                     obj.$html=[innerCell1];
@@ -707,6 +708,7 @@ async function pushGrid(schema, data, destination_id, view, key1, parentKey1, nl
 
 function renderActions(view, schema, packet, env, $html, nl_engine, schemaId) {
     for (let {...ac} of view.actions) {
+        ac = ST.select({schema: schema, data: packet, env: env}).transformWith(ac).root();
         if (ac.hasOwnProperty('visible')) {
             let visible = ac.visible;
             if(typeof visible === 'string')
@@ -731,8 +733,10 @@ function renderActions(view, schema, packet, env, $html, nl_engine, schemaId) {
             'data-view': ac.view || '',
             'data-action': ac.action || 'C',
             'data-method': ac.method || '',
-            'data-id': schema.$$storage?.id || nl_engine?.conf?.storage?.id || '$$objid',
-            'data-id-value': packet ? packet[schema.$$storage?.id || nl_engine?.conf?.storage?.id || '$$objid'] : null,
+            // 'data-id': schema.$$storage?.id || nl_engine?.conf?.storage?.id || '$$objid',
+            // 'data-id-value': packet ? packet[schema.$$storage?.id] || packet[nl_engine?.conf?.storage?.id] || packet['$$objid'] : null,
+            'data-id': '$$objid',
+            'data-id-value': packet?.$$objid,
             'data-submit-message': ac.message || 'آیا از ارسال اطمینان دارید؟',
             'data-schema': ac.schema || schemaId,
             onclick: ac.click
@@ -1168,7 +1172,8 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
                     let _propData = {...propData};
                     console.error(this.currentuser)
                     _propData.$$header.user = packet.$$header?.user;// {token: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJyb2xlcyI6WyJBRE1JTiJdLCJpYXQiOjE3MTM2ODYyNjAsImV4cCI6MTcxMzc1ODI2MH0.IW5bDgjJTXxWckcGB2Y3vVcagLYmwzw7nVbLA_cKdrY'}
-                    let _packet = await nl_engine.dataPacket(_propData, _schema, env)
+                    // let _packet = await nl_engine.dataPacket(_propData, _schema, env)
+                    let _packet = await nl_engine.runPacket(_propData, null, env, false, true);
                     let pview = getView(_schema, propData.$$header , parentView);
                     let innerCell1 = await pushObject(_schema, _packet, null, pview, null, null, nl_engine, env);
                     innerCell.$html=[innerCell1];

@@ -806,13 +806,15 @@ class nlCompiler {
 
 
     /**
+     * nl_endpoint_method
      * main method which gets command and run it and returns response of Nolang
      * @param req_packet command
      * @param listener if command is a listener this function will be fired if needed
      * @param env some extra variables passed to compile command packet
+     * @param ignoreUser if dont want to check user permission
      * @returns {Promise<*|{error: string}|{}|null|{success: boolean, message: string}|null|undefined>}
      */
-    async runPacket(req_packet, listener, env) {
+    async runPacket(req_packet, listener, env, ignoreUser=false, ignoreView=false) {
         let data_message;
         let _env = {...env};
 
@@ -929,7 +931,7 @@ class nlCompiler {
             }*/
 
             /* check permission */
-            if(schema.$$roles && this.conf.user?.authenticate /*&& !ignoreUser*/) {
+            if(schema.$$roles && this.conf.user?.authenticate && !ignoreUser) {
                 //console.time("checkpermission");
                 let checkRolesPermission = require('./nl_check_permission');
                 let checkResult = await checkRolesPermission.bind(this)(schema.$$roles, req_packet, _env);
@@ -959,7 +961,8 @@ class nlCompiler {
                         return {
                             success: true,
                             $$res: {
-                                cookies: checkResult.cookies
+                                cookies: checkResult.cookies,
+                                redirect: this.conf.user.jwt.cookie?.redirect
                             }
                         };
                     }
@@ -1020,7 +1023,7 @@ class nlCompiler {
             }*/
 
 
-            if ('CRUDL'.indexOf(action) >= 0) {
+            if ('CRUDN'.indexOf(action) >= 0) {
                 //do dataPacket
                 let _packet = {...req_packet};
                 data_message = await _ssCompiler.dataPacket(_packet, schema, _env);
@@ -1160,7 +1163,7 @@ class nlCompiler {
         }
 
         //render view
-        if(header?.view) {
+        if(header?.view && !ignoreView) {
             data_message = await this.renderView(req_packet, data_message, _env);
         }
 
@@ -1313,9 +1316,9 @@ class nlCompiler {
      * @returns {*}
      */
     handlePacket(packet, values) {
-        logger.log("handlePacket:")
-        logger.log('packet',packet)
-        logger.log('values',values)
+        // logger.log("handlePacket:")
+        // logger.log('packet',packet)
+        // logger.log('values',values)
         //console.time("handleP");
 
         if(values) {
@@ -1350,7 +1353,7 @@ class nlCompiler {
             // this.calculates(packet, this, values);
         }
 
-        logger.error(packet)
+        // logger.error(packet)
         //console.timeEnd("handleP");
 
         return packet;
@@ -1387,7 +1390,7 @@ class nlCompiler {
             }
 
 
-            let header = packet.$$header;
+            let header = {... packet.$$header};
 
             //todo require adapter or factory
 
@@ -1605,8 +1608,7 @@ class nlCompiler {
                     };
 
                 delete packet.$schema;
-                // delete packet.$$schema;
-                // delete packet.$$header;
+
 
                 //await this.runRuleOf(schema, 'beforeUpdate', packet);
                 let _result = await rule_runner.runOnAction.bind(this)(schema, 'before', header.action, packet, env);
@@ -1616,6 +1618,9 @@ class nlCompiler {
                         success: false
                     };
                 }
+
+                delete packet.$$schema;
+                delete packet.$$header;
 
                 //todo, change here update to read and if was ok, update it , then remove commit method
                 let updateList = await adapter.update(

@@ -1,12 +1,18 @@
 const nl_endpoint = require('./nl_endpoint');
 const express = require('express');
 // const bodyParser = require('body-parser');
-// const express_ws = require('express-ws');
-const WebSocketServer = require('ws');
+const express_ws = require('express-ws');
+// const WebSocketServer = require('ws');
 const cookieParser = require('cookie-parser');
 
 const path = require('path');
 const fs = require('fs');
+const cors = require("cors");
+const {IpFilter: ipfilter, IpDeniedError} = require("express-ipfilter");
+const fileUpload = require("express-fileupload");
+const https = require("https");
+const ST = require("stjs");
+const reload_ = require("reload");
 const logger = global.logger;
 let _reloadReturned;
 
@@ -95,79 +101,81 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
             app.use(helmet(this.conf.helmet));
         }
 
-        //routes handlers
-        if(this.conf.routes && this.conf.routes.length > 0)
-        for(let route of this.conf.routes) {
-            const method = route.method.toLowerCase();
-            let _cors = (req, res, next)=>next();
-
-            //cors for route
-            if(route.cors){
-                const cors = require('cors');
-                _cors = cors(route.cors);
-            }
-
-            // app.use(bodyParser.json());
-            let bp = 'json';
-            let opt = {extended: true};
-            if(route.bodyParser) {
-                if(typeof route.bodyParser === 'string')
-                    bp = route.bodyParser;
-                else {
-                    bp = route.bodyParser.method;
-                    opt = route.bodyParser.opt || {extended: true};
-                }
-            }
-
-            if(method === 'ws') {}
-                /*const expressWs = express_ws(app);
-
-                //listen to every web socket connection
-                app[method].bind(app)(route.path, _cors , (ws, req) => {
-                    //listener method if msg has listen //todo describe concept "listeners"
-                    let listener = {
-                        handler: (response) => {
-                            ws.send(JSON.stringify(response));
-                        }
-                    }
-                    ws.on('message', (msg) => {
-                        thes.nl_endpoint_method(msg, listener, {request: req}).then(response=>{
-                            ws.send(JSON.stringify(response));
-                        })
-                    });
-
-                    ws.on('close', function close() {
-                        logger.debug('websocket disconnected');
-                        //set listener to null to prevent to listen more
-                        listener.handler = null;
-                    });
+        let doListen = ()=>{
+            let httpServer;
+            if(this.conf.https && this.conf.https.enabled) {
+                const https = require('https');
+                const privateKey = fs.readFileSync(this.conf.https.privateKey, 'utf8');
+                const certificate = fs.readFileSync(this.conf.https.certificate, 'utf8');
+                const ca = this.conf.https.ca ? fs.readFileSync(this.conf.https.ca, 'utf8') : null;
+                const credentials = {
+                    key: privateKey,
+                    cert: certificate,
+                    ca: ca
+                };
+                httpServer = https.createServer(credentials, app);
+                httpServer.listen(this.conf.https.port || 443, () => {
+                    logger.log('######    Nolang HTTPS Server running on port '+(this.conf.https.port || 443) + '    ######');
+                    this.openBrowser(this.conf.https.port || 443, true)
+                });
+            } else {
+                httpServer = app.listen(port, () => {
+                    logger.log(`############     Nolang HTTP listening on port ${port}    ############`)
+                    this.openBrowser(port);
                 })
-            }*/
-            //create a handler method bounded to "app" with path "route.path"
-            //which runs nl_endpoint_method , by command "route.return" or "req.body"
-            else {
-                let handler;
-                if(route.middleware) {
-                    try {
-                        //todo need to cache
-                        let middlewarePath = route.middleware;
-                        if(!path.isAbsolute(route.middleware)) {
-                            middlewarePath = path.join(global.appPath, route.middleware);
-                        }
-                        if(!fs.existsSync(middlewarePath)){
-                            logger.error({message: 'middleware '+route.middleware+', path not exists! '+middlewarePath});
-                        }
-                        let methodMiddleware = require(middlewarePath);
-                        let thisObj = {
-                            endpoint: (req_packet, listener, env)=>thes.nl_endpoint_method(req_packet, listener, env),
-                        };
-                        handler = methodMiddleware.bind(thisObj)
-                    } catch (e){
-                        return {success: false, message: e.message};
+            }
+            express_ws(app, httpServer);
+
+            let enableWS = false;
+            //routes handlers
+            if(this.conf.routes && this.conf.routes.length > 0)
+                for(let route of this.conf.routes) {
+                    const method = route.method.toLowerCase();
+                    let _cors = (req, res, next)=>next();
+
+                    //cors for route
+                    if(route.cors) {
+                        const cors = require('cors');
+                        _cors = cors(route.cors);
                     }
-                }
-                else {
-                    handler = (req, res)=>{
+
+                    // app.use(bodyParser.json());
+                    let bp = 'json';
+                    let opt = {extended: true};
+                    if(route.bodyParser) {
+                        if(typeof route.bodyParser === 'string')
+                            bp = route.bodyParser;
+                        else {
+                            bp = route.bodyParser.method;
+                            opt = route.bodyParser.opt || {extended: true};
+                        }
+                    }
+
+                    let middlewares = [_cors, express[bp](opt)]
+                    if(route.middleware) {
+                        try {
+                            //todo need to cache
+                            let middlewarePath = route.middleware;
+                            if(!path.isAbsolute(route.middleware)) {
+                                middlewarePath = path.join(global.appPath, route.middleware);
+                            }
+                            if(!fs.existsSync(middlewarePath)){
+                                logger.error({message: 'middleware '+route.middleware+', path not exists! '+middlewarePath});
+                            }
+                            let methodMiddleware = require(middlewarePath);
+                            let thisObj = {
+                                endpoint: (req_packet, listener, env, ignoreUser)=>thes.nl_endpoint_method(req_packet, listener, env, ignoreUser),
+                            };
+                            let mhandler = methodMiddleware.bind(thisObj)
+                            // app.use(route.path, mhandler);
+                            middlewares.push(mhandler);
+                        } catch (e){
+                            return {success: false, message: e.message};
+                        }
+                    }
+                    app.use(route.path, middlewares);
+
+                    let handler = (req, res)=>{
                         let command = route.return || req.body;
                         if(req.files && req.body.command) {
                             command = JSON.parse(req.body.command);
@@ -390,38 +398,76 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                             logger.error(msg, error)
                         })
                     }
+
+                    if(method === 'ws') {
+                        if(!enableWS) {
+                            // express_ws(app, httpServer);
+                            enableWS = true;
+                        }
+                        handler = (ws, req) => {
+                            //listener method if msg has listen //todo describe concept "listeners"
+                            let listener = {
+                                handler: (response) => {
+                                    ws.send(JSON.stringify(response));
+                                }
+                            }
+                            ws.on('message', (msg) => {
+
+                                //////
+                                let _env = {
+                                    request: {
+                                        baseUrl: req.baseUrl,
+                                        originalUrl: req.originalUrl,
+                                        path: req.path,
+                                        protocol: req.protocol,
+                                        secure: req.secure,
+                                        fresh: req.fresh,
+                                        stale: req.stale,
+                                        hostname: req.hostname,
+                                        subdomains: req.subdomains,
+                                        ip: req.ip,
+                                        ips: req.ips,
+                                        xhr: req.xhr,
+                                        method: req.method,
+                                        params: req.params,
+                                        body: req.body,
+                                        query: req.query,
+                                        url: req.url,
+                                        headers: req.headers,
+                                        cookies: req.cookies,
+                                        signedCookies: req.signedCookies,
+                                    },
+                                };
+
+                                let _req = {
+                                    message: JSON.parse(msg),
+                                    env: _env
+                                }
+                                const ST = require('stjs');
+                                msg = ST.select(_req).transformWith(route.return || msg).root();
+                                //////
+
+                                console.log('a message from ws received', msg)
+                                thes.nl_endpoint_method(msg, listener, {request: req}).then(response => {
+                                    ws.send(JSON.stringify(response));
+                                })
+                            });
+
+                            ws.on('close', function close() {
+                                logger.debug('websocket disconnected');
+                                //set listener to null to prevent to listen more
+                                listener.handler = null;
+                            });
+                        }
+                        // app[method].bind(app)(route.path, handler);
+                        // app.ws(route.path, handler);
+                    } //else
+                    app[method].bind(app)(route.path, handler);
+                    logger.info('http   '+ (route.type==='undefined'?'':route.type||'').padEnd(7) + route.method.padEnd(6)  + route.path )
                 }
-                app[method].bind(app)(route.path, [_cors, express[bp](opt)] , handler);
-            }
-            logger.info('http   '+ (route.type==='undefined'?'':route.type||'').padEnd(7) + route.method.padEnd(6)  + route.path )
-        }
-
-        let doListen = ()=>{
-            let httpServer;
-            if(this.conf.https && this.conf.https.enabled) {
-                const https = require('https');
-                const privateKey = fs.readFileSync(this.conf.https.privateKey, 'utf8');
-                const certificate = fs.readFileSync(this.conf.https.certificate, 'utf8');
-                const ca = this.conf.https.ca ? fs.readFileSync(this.conf.https.ca, 'utf8') : null;
-                const credentials = {
-                    key: privateKey,
-                    cert: certificate,
-                    ca: ca
-                };
-                httpServer = https.createServer(credentials, app);
-                httpServer.listen(this.conf.https.port || 443, () => {
-                    logger.log('######    Nolang HTTPS Server running on port '+(this.conf.https.port || 443) + '    ######');
-                    this.openBrowser(this.conf.https.port || 443, true)
-                });
-            } else {
-                httpServer = app.listen(port, () => {
-                    logger.log(`############     Nolang HTTP listening on port ${port}    ############`)
-                    this.openBrowser(port);
-                })
-            }
 
 
-            const wss = new WebSocketServer.Server({server: httpServer });
+            /*const wss = new WebSocketServer.Server({server: httpServer });
 
             wss.on("connection", ws => {
                 //Execute on connection
@@ -440,8 +486,6 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                     //Parse the data, execute the event.
                     try {
                         let data = JSON.parse(raw_data)
-                        // let event = new Event(data.type, socket, data)
-                        // event.Execute();
 
                         thes.nl_endpoint_method(data, listener, {}).then(response=>{
                             ws.send(JSON.stringify(response));
@@ -461,7 +505,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                 ws.onerror = error =>{
                     logger.log(`Client Error: ${error}`);
                 }
-            });
+            });*/
         }
 
         if(this.conf?.watch) {
