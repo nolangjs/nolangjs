@@ -85,7 +85,7 @@ class storage_mongodb extends storage_main {
 
         let options = {};
 
-        if (packet.$$header.sort) {
+        if (packet.$$header?.sort) {
             options.sort = packet.$$header.sort
         }
 

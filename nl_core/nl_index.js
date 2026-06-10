@@ -31,6 +31,8 @@ const fs = require('fs');
 
 const ST = require('stjs');
 
+const queues = new Map();
+
 const entitySchema = require('../basic_schemas/nolang.entity.schema.json');
 const appSchema = require('../basic_schemas/nolang.app.schema.json');
 const checkRolesPermission = require("./nl_check_permission");
@@ -468,7 +470,7 @@ class nlCompiler {
                                     schema: itsSchema,
                                     packet: req_packet,
                                     params: header.params,
-                                    endpoint: (req_packet, listener, env)=>thes.runPacket(req_packet, listener, env),
+                                    endpoint: (req_packet, listener, env, ignoreUser, ignoreView)=>thes.runPacket(req_packet, listener, env, ignoreUser, ignoreView),
                                 };
                                 return await methodJs.call(thisObj)
                             } catch (e){
@@ -728,7 +730,8 @@ class nlCompiler {
                     let render_html = require('./view_render/render_html');
                     return await render_html(schema, view, data2 || data || req_packet, _ssCompiler, env)
                 } else if(view.engine === 'file' && view.render) {
-                    let render_file = require(path.join(global.appPath, view.render));
+                    let vpath = path.isAbsolute(view.render) ? view.render : path.join(global.appPath, view.render);
+                    let render_file = require(vpath);
                     return await render_file(schema, view, data2 || data || req_packet, _ssCompiler, env)
                 }
             }
@@ -859,7 +862,24 @@ class nlCompiler {
 
         let header = req_packet.$$header;
 
+        //queue
+        if(header.queue) {
+            let _req_packet = JSON.parse(JSON.stringify(req_packet));
+            const queueName = header.queue;
+            delete _req_packet.$$header.queue;
 
+            const current = queues.get(queueName) || Promise.resolve();
+            const next = current
+                .then(() => this.runPacket(_req_packet, listener, env, ignoreUser, ignoreView))
+                .catch(err => {
+                    // Log error but don't break the queue
+                    console.error(`Error in queue ${queueName}:`, err);
+                    throw err; // Still throw for the specific caller
+                });
+
+            queues.set(queueName, next.catch(() => {})); // Queue continues despite errors
+            return next;
+        }
 
 
         //depricated
@@ -973,7 +993,8 @@ class nlCompiler {
                             $$res: {
                                 clearCookies: {
                                     [checkResult.error.message.split(' ')[0]]: {}
-                                }
+                                },
+                                redirect: this.conf.user.login?.path
                             }
                         };
                     }
@@ -1047,7 +1068,7 @@ class nlCompiler {
                         [req_packet.$$schema]: Array.isArray(data_message) ? data_message[0] : data_message
                     }).transformWith(header.then).root();
                     if (header.then.$$header) {
-                        return _ssCompiler.runPacket(header.then, null, _env);
+                        return _ssCompiler.runPacket(header.then, null, _env, ignoreUser, ignoreView);
                     }
                     if (header.then.$$set) {
                         for (let key in header.then.$$set) {
@@ -1068,7 +1089,7 @@ class nlCompiler {
                         [req_packet.$$schema]: Array.isArray(data_message) ? data_message[0] : data_message
                     }).transformWith(header.else).root();
                     if (header.else.$$header) {
-                        return _ssCompiler.runPacket(header.else, null, _env);
+                        return _ssCompiler.runPacket(header.else, null, _env, ignoreUser, ignoreView);
                     }/* else if(header.else.$$new) {
                     if(!data_message.$$new)
                         data_message.$$new = {};
@@ -1087,7 +1108,7 @@ class nlCompiler {
 
             //check for push to listeners //todo except action R
             //todo remove expired listeners after refresh
-            if(data_message && action !== 'R' && this.listeners.hasOwnProperty(req_packet.$$schema)){
+            if(data_message && ['C','U','D'].indexOf(action)>-1 && this.listeners.hasOwnProperty(req_packet.$$schema)){
                 for(let lis of this.listeners[req_packet.$$schema]){
                     //check header filter
                     let check = true;
@@ -1125,6 +1146,7 @@ class nlCompiler {
                     }
                     //add push request
                     //todo check if not exists
+                    logger.log('add listner for '+req_packet.$$schema)
                     this.listeners[req_packet.$$schema].push({
                         // listenerId: uuid(),
                         header: header,
@@ -1619,8 +1641,8 @@ class nlCompiler {
                     };
                 }
 
-                delete packet.$$schema;
-                delete packet.$$header;
+                // delete packet.$$schema;
+                // delete packet.$$header;
 
                 //todo, change here update to read and if was ok, update it , then remove commit method
                 let updateList = await adapter.update(
@@ -1673,7 +1695,7 @@ class nlCompiler {
 
                     return {success: false, message: thes.ajv.errors};// JSON.stringify(this.ajv.errors) +"not Valid! update failed"
                 } else {
-                    await adapter.commit(updateList);
+                    let r = await adapter.commit(updateList);
                     return { success: true, message: "update ok", updated: updateList.value().length, $$objid: updateList.value()[0]?.$$objid};
                 }
             }

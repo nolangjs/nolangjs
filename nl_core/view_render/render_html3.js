@@ -996,7 +996,7 @@ async function pushOne(propSchema, propData, parentCell, packet, key, parentView
     propData = ST.select({schema: propSchema, data: packet, env: env}).transformWith(propData).root();
 
     //debug
-    if (propSchema.debug) {
+    if (propSchema?.debug) {
         console.debug('pushOne(',key,propSchema, propData);
     }
 

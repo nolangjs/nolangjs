@@ -124,7 +124,11 @@ class storage_nedb extends storage_main {
                 delete objs.packet[key];
             }
         });
-        return await new Promise((resolve, reject)=>this.db.update(objs.filter||{}, {$set: objs.packet}, {multi: true}, (err, numReplaced)=>{
+        return await new Promise((resolve, reject)=>this.db.update(
+            objs.filter||{},
+            {$set: objs.packet},
+            {multi: true, returnUpdatedDocs: true},
+            (err, numReplaced)=>{
             if(err) reject(err);
             resolve({updated: numReplaced})
         }));

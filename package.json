@@ -1,6 +1,6 @@
 {
   "name": "nolangjs",
-  "version": "1.3.3",
+  "version": "1.3.5",
   "description": "Nolang for javascript",
   "main": "nl_core/nl_cli.js",
   "bin": {
