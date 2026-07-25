@@ -9,6 +9,7 @@ const storages = {
     mysql: require('./storage.mysql.js'),
     nedb: require('./storage.nedb.js'),
     postgresql: require('./storage.postgresql.js'),
+    sqlite: require('./storage.sqlite.js'),
 }
 
 module.exports = async function storage_factory(storage) {

@@ -532,7 +532,7 @@ class nlCompiler {
         }
     }
 
-    async renderView(req_packet1, data, env) {
+    async renderView(req_packet1, data, all_count, env) {
         const _ssCompiler = this;
 
         let req_packet = {... req_packet1};
@@ -646,6 +646,8 @@ class nlCompiler {
 
             let data2 = null;
             if(data && is_Array(data)) {
+                if(all_count === -1)
+                    all_count = data.length;
                 data2 = [...data];
                 //visible fields
                 if ((view && (view.visibleFields || view.hiddenFields)) ||
@@ -732,7 +734,7 @@ class nlCompiler {
                 } else if(view.engine === 'file' && view.render) {
                     let vpath = path.isAbsolute(view.render) ? view.render : path.join(global.appPath, view.render);
                     let render_file = require(vpath);
-                    return await render_file(schema, view, data2 || data || req_packet, _ssCompiler, env)
+                    return await render_file(schema, view, data2 || data || req_packet, _ssCompiler, env, data.length, all_count)
                 }
             }
 
@@ -740,7 +742,9 @@ class nlCompiler {
                 return {
                     data: data2 || data || req_packet, //packet of request with data of selected schema
                     schema: schema, //related schema
-                    view: view //suitable view
+                    view: view, //suitable view
+                    count: data.length,
+                    all_count: all_count
                 };
             else
                 return data2 || data || req_packet;
@@ -819,6 +823,7 @@ class nlCompiler {
      */
     async runPacket(req_packet, listener, env, ignoreUser=false, ignoreView=false) {
         let data_message;
+        let all_count = -1;
         let _env = {...env};
 
         if(typeof req_packet === 'string'){
@@ -880,7 +885,6 @@ class nlCompiler {
             queues.set(queueName, next.catch(() => {})); // Queue continues despite errors
             return next;
         }
-
 
         //depricated
         // req_packet = this.handlePacket(req_packet, req_packet);
@@ -1000,7 +1004,10 @@ class nlCompiler {
                     }
                     return {
                         success: false,
-                        error: checkResult.error
+                        error: checkResult.error,
+                        $$res: !env.userid ? {
+                            redirect: this.conf.user.login?.path
+                        } : null
                     };
                 }
                 //console.timeEnd("checkpermission");
@@ -1048,6 +1055,16 @@ class nlCompiler {
                 //do dataPacket
                 let _packet = {...req_packet};
                 data_message = await _ssCompiler.dataPacket(_packet, schema, _env);
+
+                if (action === 'R' && req_packet.$$header?.hasOwnProperty('limit')) {
+                    let req_packet_count = JSON.parse(JSON.stringify(req_packet));
+                    delete req_packet_count.$$header.limit;
+                    delete req_packet_count.$$header.skip;
+                    delete req_packet_count.$$header.sort;
+                    req_packet_count.$$header.action = 'N';
+                    let rowcount = await _ssCompiler.dataPacket(req_packet_count, schema, _env, ignoreUser);
+                    all_count = rowcount[0]?.count || 0;
+                }
 
                 if (header?.hasOwnProperty('path')) {
                     try {
@@ -1130,7 +1147,7 @@ class nlCompiler {
                         //render view
                         let _data_message = {...data_message}
                         if(header?.view) {
-                            _data_message = await this.renderView(req_packet, data_message, _env);
+                            _data_message = await this.renderView(req_packet, data_message, all_count, _env);
                         }
                         lis.listener.handler(_data_message);
                     }
@@ -1186,7 +1203,7 @@ class nlCompiler {
 
         //render view
         if(header?.view && !ignoreView) {
-            data_message = await this.renderView(req_packet, data_message, _env);
+            data_message = await this.renderView(req_packet, data_message, all_count, _env);
         }
 
         return data_message;
@@ -1696,6 +1713,9 @@ class nlCompiler {
                     return {success: false, message: thes.ajv.errors};// JSON.stringify(this.ajv.errors) +"not Valid! update failed"
                 } else {
                     let r = await adapter.commit(updateList);
+                    if(r.success === false) {
+                        return {success: false, message: r.message};
+                    }
                     return { success: true, message: "update ok", updated: updateList.value().length, $$objid: updateList.value()[0]?.$$objid};
                 }
             }
@@ -1738,9 +1758,10 @@ class nlCompiler {
                     }
                 }*/
                 // await this.runRuleOf(schema, 'afterDelete', packet);
-                await rule_runner.runOnAction.bind(this)(schema, 'after', header.action, packet, env);
+                if(ret.success !== false)
+                    await rule_runner.runOnAction.bind(this)(schema, 'after', header.action, packet, env);
 
-                ret.success = true;
+                //ret.success = true;
                 return ret;
             }
         }

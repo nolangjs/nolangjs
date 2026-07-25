@@ -157,7 +157,7 @@
                 },
                 "schedule": {
                     "type": "string",
-                    "description": "cron like expression"
+                    "description": "cron like expression Minute Hour Day Month DayOfWeek * * * * * – Every minute\n\n*/5 * * * * – Every 5 minutes\n\n*/10 * * * * – Every 10 minutes\n\n*/15 * * * * – Every 15 minutes\n\n*/30 * * * * – Every 30 minutes\n\n0 * * * * – Every hour (at minute 0)\n\n0 */2 * * * – Every 2 hours\n\n0 */6 * * * – Every 6 hours\n\n0 0 * * * – Every day at midnight\n\n0 9 * * * – Every day at 9:00 AM\n\n30 2 * * * – Every day at 2:30 AM\n\n0 0 * * 0 – Every Sunday at midnight\n\n0 9 * * 1 – Every Monday at 9:00 AM\n\n0 9 * * 1-5 – Every weekday (Mon–Fri) at 9:00 AM\n\n0 0 1 * * – 1st of every month at midnight\n\n0 0 15 * * – 15th of every month at midnight\n\n0 0 1 1 * – January 1st at midnight (yearly)\n\n0 0 * * 6 – Every Saturday at midnight\n\n0 12 * * * – Every day at noon (12:00 PM)\n\n59 23 * * * – Every day at 11:59 PM\n\n0 0 1 1,6 * – January 1st and June 1st at midnight\n\n0 9-17 * * * – Every hour between 9 AM and 5 PM\n\n0 9,13,17 * * * – At 9 AM, 1 PM, and 5 PM daily"
                 },
                 "timezone": {
                     "type": "string",
@@ -177,7 +177,7 @@
                     "description": "object to be set"
                 },
                 "script": {
-                    "type": "object",
+                    "type": ["object", "array"],
                     "description": "a nolang script to run"
                 },
                 "async": {
@@ -656,6 +656,12 @@
                         "type": "string"
                     }
                 },
+                "readonlyFields": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
                 "required": {
                     "description": "required fields in this view",
                     "type": "array",
@@ -758,7 +764,14 @@
                     ]
 
                 },
+                "group": {
+                    "type": ["string", "array"]
+                },
                 "destination_id": {
+                    "type": "string",
+                    "description": "DEPRICATED"
+                },
+                "target": {
                     "type": "string"
                 },
                 "debug": {
@@ -767,7 +780,7 @@
                 },
                 "modal": {
                     "type": "boolean",
-                    "description": "if true content must be located in a modal div"
+                    "description": "if true content must be located in a modal div. DEPRICATED"
                 },
                 "cache": {
                     "description": "response of this command caches in redis by the key and expires after the time",
@@ -830,6 +843,7 @@
                         "mysql",
                         "oracle",
                         "postgresql",
+                        "sqlite",
                         "webservice",
                         "couchbase",
                         "json",
@@ -853,6 +867,9 @@
                             },
                             {
                                 "const": "postgresql"
+                            },
+                            {
+                                "const": "sqlite"
                             }
                         ]
                     }
@@ -952,6 +969,26 @@
                     }
                 },
                 "required": ["host", "user","database"]
+            },
+            "s_sqlite": {
+                "properties": {
+                    "adapter": {
+                        "enum": [
+                            "sqlite"
+                        ]
+                    },
+                    "path": {
+                        "type": "string"
+                    },
+                    "id": {
+                        "type": "string"
+                    },
+                    "aggregate": {
+                        "description": "filter documents pipeline criteria including $group, $sort, $match, and ... or SQL",
+                        "type": ["array", "object"]
+                    }
+                },
+                "required": ["path"]
             },
             "s_file": {
                 "properties": {
@@ -1092,6 +1129,9 @@
                 },
                 {
                     "$ref": "#/definitions/storages/s_postgres"
+                },
+                {
+                    "$ref": "#/definitions/storages/s_sqlite"
                 },
                 {
                     "$ref": "#/definitions/storages/s_csv"
@@ -1373,7 +1413,7 @@
         "$$rules": {
             "type": "array",
             "items": {
-                "$ref": "ssRule"
+                "$ref": "#/definitions/ssRule"
             },
             "minItems": 0,
             "uniqueItems": true

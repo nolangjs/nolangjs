@@ -3,7 +3,7 @@
 const logger = global.logger;
 const storage_main = require('./storage.main');
 const csv = require("csvtojson");
-const {join} = require('path');
+const {join, isAbsolute} = require('path');
 const orderBy = require('../tools/orderby.utils');
 
 class storage_csv extends storage_main {
@@ -18,7 +18,7 @@ class storage_csv extends storage_main {
 
     async read(schema, filter, filterrulesMethod, packet){
         logger.log("read from "+ schema.$id);
-        let path = this.path = join(global.appPath,this.storage.path);
+        let path = this.path = isAbsolute(this.storage.path) ? this.storage.path : join(global.appPath,this.storage.path);
         let data = await csv().fromFile(path);
 
         if(filter) {

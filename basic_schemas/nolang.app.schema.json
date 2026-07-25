@@ -509,6 +509,16 @@
                     "description": "allow set userid directly in script?",
                     "type": "boolean",
                     "default": false
+                },
+                "login": {
+                    "description": "login page info",
+                    "type": "object",
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "description": "login page url"
+                        }
+                    }
                 }
             }
         },

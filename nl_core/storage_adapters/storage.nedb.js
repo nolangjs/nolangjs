@@ -2,7 +2,7 @@
 //logger
 const storage_main = require('./storage.main');
 const Datastore = require('nedb');
-const {join} = require('path');
+const {join, isAbsolute} = require('path');
 const logger = global.logger;
 
 class storage_nedb extends storage_main {
@@ -12,7 +12,7 @@ class storage_nedb extends storage_main {
             this.db = new Datastore();
         } else {
             super('file');
-            let path = this.path = join(global.appPath,storage.path);
+            let path = this.path = isAbsolute(storage.path)? storage.path : join(global.appPath,storage.path);
             if(!path) {
                 throw new Exception("No path in storage ");
             }

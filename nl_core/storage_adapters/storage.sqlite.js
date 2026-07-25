@@ -1,44 +1,43 @@
 "use strict";
-const mysql = require('promise-mysql');
+const sqlite = require('better-sqlite3');
 const storage_main = require('./storage.main');
 const jsonSql = require('json-sql')({
     separatedValues: false,
-    dialect: 'mysql',
+    dialect: 'sqlite',
     wrappedIdentifiers: false
 });
 require('make-promises-safe');
+const {isAbsolute, join} = require("path");
 const logger = global.logger;
 
-class storage_mysql extends storage_main {
+class storage_sqlite extends storage_main {
 
 
     constructor (storage, ssConf){
-        super('mysql');
+        super('sqlite');
         this.storage = storage;
-    }
-
-    async initMysql(){
-        logger.trace("init mysql");
         let config = {
-            host     : this.storage.host,
-            user     : this.storage.username,
-            password : this.storage.password,
-            database : this.storage.database
+            path     : this.storage.path,
         };
-        this.connection = await mysql.createConnection(config);
-        // this.connection = mysql.createConnection('mysql://root:123456@127.0.0.1/sbs?debug=true&charset=UTF8&timezone=+0330');
-        logger.trace("inited mysql");
+        let path = this.path = isAbsolute(this.storage.path) ? storage.path : join(global.appPath, storage.path);
+        if(!path){
+            throw new Exception("No path in storage ");
+        }
+        this.db = new sqlite(path, {
+            // verbose: logger.log
+        });
+        this.db.pragma('journal_mode = WAL');
+        this.db.pragma('foreign_keys = ON');
+        this.db.pragma('busy_timeout = 5000');
+
+        logger.trace("inited sqlite");
     }
 
-    async query(sql){
+    query(sql){
         logger.log(sql);
-        await this.initMysql();
-        let rows = await this.connection.query(sql);
-        this.connection.end();
-        logger.trace(rows)
+        let rows = this.db.prepare(sql).run();
         return rows;
     }
-
 
     async create(schema, packet){
         await super.create(schema, packet);
@@ -55,11 +54,11 @@ class storage_mysql extends storage_main {
         });
 
         try {
-            let result = await this.query(sql.query);
+            let result = this.db.prepare(sql.query).run();
 
             return {
-                message: "ADDED " + result?.rowCount + " " + table,
-                newId: result?.rowCount,
+                message: "ADDED 1 row in " + table,
+                newId: result?.lastInsertRowid,
             };
         } catch (e) {
             logger.error(e)
@@ -140,7 +139,7 @@ class storage_mysql extends storage_main {
 
         logger.log(sql);
 
-        let rows = await this.query(sql);
+        let rows = this.db.prepare(sql).all();
 
         //add $$objid to all objects of return collection using _id
         if (table_id) {
@@ -205,7 +204,7 @@ class storage_mysql extends storage_main {
 
         sql = sql.query.replace(/"/g, '');
 
-        let result = await this.query(sql);
+        let result = this.db.prepare(sql).run();
 
 
         return result.affectedRows + " object DELETED FROM "+table;
@@ -237,10 +236,22 @@ class storage_mysql extends storage_main {
 
         sql = sql.query.replace(/"/g, '');
 
-        let result = await this.query(sql);
+        let result = this.db.prepare(sql).run();
         logger.trace("committed" + result);
     }
+
+    gracefulShutdown() {
+        console.log('Closing database connection...');
+        this.db.close(); // This safely flushes pending writes and checkpoints the WAL
+        console.log('Database closed.');
+        process.exit(0);
+    }
+
+    // process.on('SIGINT', gracefulShutdown);
+    // process.on('SIGTERM', gracefulShutdown);
+
+
 }
 
-module.exports = storage_mysql;
+module.exports = storage_sqlite;
 

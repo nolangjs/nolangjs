@@ -1756,7 +1756,7 @@ const _ = require('lodash');*/
 module.exports = async function render_html(schema, view, data, nl_engine, env) {
     //todo
     if(typeof data === 'object' && data.success === false) {
-        return "<br><h3 align='center' style='color: red'>"+data.error+"</h3>"
+        return "<br><h3 align='center' style='color: red'>"+data.error || data.message+"</h3>"
         // +"<meta http-equiv='refresh' content='5; url=/login' />"
     }
     /*let _schema = {...schema};

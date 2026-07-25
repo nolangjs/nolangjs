@@ -1,5 +1,12 @@
 "use strict";
-const {Client} = require('pg');
+const {Pool, types} = require('pg');
+// ✅ Set this ONCE before creating your pool
+// This converts all TIMESTAMP (no timezone) to UTC correctly
+types.setTypeParser(1114, (stringValue) => {
+    // PostgreSQL returns: '2026-07-15 10:58:18.829'
+    // Mark as UTC by appending 'Z'
+    return new Date(stringValue + 'Z');
+});
 const storage_main = require('./storage.main');
 const jsonSql = require('json-sql')({
     separatedValues: false,
@@ -18,7 +25,9 @@ class storage_postgresql extends storage_main {
         this.storage = storage;
     }
 
-    initPostgresql(){
+    async initPostgresql(){
+        if(this.connection) return;
+
         logger.trace("init postgresql");
         let config = {
             host     : this.storage.host,
@@ -30,8 +39,8 @@ class storage_postgresql extends storage_main {
             // idleTimeoutMillis: this.storage.idleTimeoutMillis || 30000,
             // connectionTimeoutMillis: this.storage.connectionTimeoutMillis || 2000,
         };
-        this.connection = new Client(config);
-        this.connection.connect((err) => {
+        this.connection = new Pool(config);
+        /*await this.connection.connect((err) => {
             if (err) {
                 logger.error('connection error postgresql')
                 logger.error(err.message)
@@ -39,11 +48,12 @@ class storage_postgresql extends storage_main {
             } else {
                 logger.trace("inited postgresql");
             }
-        })
+        })*/
     }
 
     async query(sql){
-        logger.log(sql);
+        if(this.storage.log)
+            logger.log(sql);
         await this.initPostgresql();
         // let res;
         /*this.connection.query(sql, function (error, results, fields) {
@@ -54,10 +64,17 @@ class storage_postgresql extends storage_main {
          logger.log(res)
          });*/
 
-        let result = await this.connection.query(sql);
+        try {
+            return await this.connection.query(sql);
+        } catch(err){
+            logger.error(err);
+            return err;
+        } finally {
+            // this.connection.release();
+        }
         // logger.log(result)
-        this.connection.end();
-        return result;
+        // this.connection.end();
+        // return result;
     }
 
 
@@ -77,6 +94,10 @@ class storage_postgresql extends storage_main {
 
         try {
             let result = await this.query(sql.query.slice(0,-1) + ' RETURNING *');
+
+            if(result.name==='error'){
+                return {success: false, message: result.detail || result.message};
+            }
 
             return {
                 success: true,
@@ -140,9 +161,11 @@ class storage_postgresql extends storage_main {
                             alias: (field.$$rel.alias || (field.$$rel.schema + '_' + field.$$rel.return))
                         }
                     ]
+            } else if(field.type === 'virtual') {
+                selField = field.field;
             } else {
                 //selField = table + '.' + f;
-                selField = {table: table, name: f}
+                selField = {table: table, name: f};
             }
 
             fields.push(selField);
@@ -170,15 +193,25 @@ class storage_postgresql extends storage_main {
             }]
         }
 
+        let _filter = {};
+        if(filter){
+            _filter = {...filter};
+            if(_filter.$$objid) {
+                _filter[this.storage.id] = _filter.$$objid;
+                delete _filter.$$objid;
+            }
+        }
+
         let jsql = jsonSql.build({
             type: 'select',
             table: table,
             fields: fields,
-            condition: filter,
+            condition: _filter,
             join: hasJoin ? join : undefined,
             limit: packet.$$header.limit,
             offset: packet.$$header.skip,
-            sort: packet.$$header.sort
+            sort: packet.$$header.sort,
+            group: packet.$$header.group || this.storage.aggregate
         });
 
 
@@ -250,16 +283,28 @@ class storage_postgresql extends storage_main {
         super.delete(schema, filter, filterrulesMethod);
         let table = this.storage.table || schema.$id;
 
+        let _filter = {};
+        if(filter){
+            _filter = {...filter};
+            if(_filter.$$objid) {
+                _filter[this.storage.id] = _filter.$$objid;
+                delete _filter.$$objid;
+            }
+        }
+
         let sql = jsonSql.build({
             type: 'remove',
             table: table,
-            condition: filter
+            condition: _filter
         });
 
         sql = sql.query;//.replace(/"/g, '');
 
         let result = await this.query(sql);
 
+        if(result.name==='error'){
+            return {success: false, message: result.detail || result.message};
+        }
 
         return {success: true, deletedCount: result.rowCount};
     }
@@ -267,10 +312,13 @@ class storage_postgresql extends storage_main {
     async commit(obj) {
         // let collection = obj.schema.$id;
         // let MyCollection = this.db.collection(collection);
+
+        let _filter = {};
         if(obj.filter){
-            if(obj.filter.$$objid) {
-                obj.filter[this.storage.id] = obj.filter.$$objid;
-                delete obj.filter.$$objid;
+            _filter = {...obj.filter};
+            if(_filter.$$objid) {
+                _filter[this.storage.id] = _filter.$$objid;
+                delete _filter.$$objid;
             }
         }
 
@@ -285,13 +333,18 @@ class storage_postgresql extends storage_main {
             type: 'update',
             table: table,
             modifier: obj.packet,
-            condition: obj.filter
+            condition: _filter
         });
 
         sql = sql.query;//.replace(/"/g, '');
 
         let result = await this.query(sql);
+
+        if(result.name==='error'){
+            return {success: false, message: result.detail || result.message};
+        }
         logger.trace("committed" + result);
+        return {success: true, rows: result.rowCount};
     }
 }
 

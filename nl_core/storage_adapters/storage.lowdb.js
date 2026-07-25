@@ -1,6 +1,6 @@
 "use strict";
 const fs = require('fs');
-const {join} = require('path');
+const {join, isAbsolute} = require('path');
 const low = require('lowdb');
 const FileSync = require('lowdb/adapters/FileSync');
 const Memory = require('lowdb/adapters/Memory');
@@ -26,7 +26,7 @@ class storage_lowdb extends storage_main {
             // var ssConf = require('../ssapps/app1/conf/ss.app.conf.json');
 
             //path of db file
-            let path = this.path = join(global.appPath,storage.path);
+            let path = this.path = isAbsolute(storage.path) ? storage.path : join(global.appPath, storage.path);
             if(!path){
                 throw new Exception("No path in storage ");
             }
