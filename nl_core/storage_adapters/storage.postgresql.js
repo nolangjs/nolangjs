@@ -171,6 +171,11 @@ class storage_postgresql extends storage_main {
             fields.push(selField);
         }
 
+        if(this.storage.join) {
+            hasJoin = true;
+            join = this.storage.join;
+        }
+
         if (this.storage.fields && this.storage.fields.length > 0)
             fields = this.storage.fields;
 

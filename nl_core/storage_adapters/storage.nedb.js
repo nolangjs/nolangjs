@@ -5,6 +5,36 @@ const Datastore = require('nedb');
 const {join, isAbsolute} = require('path');
 const logger = global.logger;
 
+const util = require('util');
+
+const polyfills = {
+    isDate:            (v) => v instanceof Date,
+    isRegExp:          (v) => v instanceof RegExp,
+    isArray:           (v) => Array.isArray(v),
+    isBoolean:         (v) => typeof v === 'boolean',
+    isNull:            (v) => v === null,
+    isNullOrUndefined: (v) => v == null,
+    isNumber:          (v) => typeof v === 'number',
+    isString:          (v) => typeof v === 'string',
+    isSymbol:          (v) => typeof v === 'symbol',
+    isUndefined:       (v) => v === undefined,
+    isObject:          (v) => v !== null && typeof v === 'object',
+    isFunction:        (v) => typeof v === 'function',
+    isPrimitive:       (v) => v === null || (typeof v !== 'object' && typeof v !== 'function'),
+    isBuffer:          (v) => Buffer.isBuffer(v),
+    isError:           (v) => v instanceof Error,
+};
+
+for (const [name, fn] of Object.entries(polyfills)) {
+    if (typeof util[name] !== 'function') {
+        Object.defineProperty(util, name, {
+            value: fn,
+            writable: true,
+            configurable: true,
+        });
+    }
+}
+
 class storage_nedb extends storage_main {
     constructor (storage) {
         if(storage.adapter === "memory") {

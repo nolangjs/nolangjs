@@ -325,6 +325,10 @@
                     "type": "string",
                     "description": "view in the schema which must be shown "
                 },
+                "filter": {
+                    "type": "object",
+                    "description": "filter in lookup entity"
+                },
                 "key": {
                     "type": "string",
                     "description": "search in the schema by this key other than it's id"
@@ -937,6 +941,10 @@
                     "table": {
                         "type": "string",
                         "description": "table name in sql storages if different from $id"
+                    },
+                    "join": {
+                        "type": "object",
+                        "description": "join tables"
                     },
                     "host": {
                         "type": "string"

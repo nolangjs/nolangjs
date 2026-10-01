@@ -6,7 +6,10 @@ const MongoClient = Mongo.MongoClient;
 const storage_main = require('./storage.main');
 const logger = global.logger;
 
+// === FIX: Module-level shared client + connection promise (prevents race condition) ===
 let mongod;
+let mongoClient;
+let mongoConnectPromise;
 
 class storage_mongodb extends storage_main {
 
@@ -16,17 +19,64 @@ class storage_mongodb extends storage_main {
     }
 
     async initMongo() {
-        if (!mongod) {
-            //console.time("initMongo1");
-            this.client = await MongoClient.connect(this.storage.url, {maxPoolSize: 100, useNewUrlParser: true});
-            //console.timeEnd("initMongo1");
-
-            //console.time("initMongo2");
-            this.db = this.client.db(this.storage.database);
-            mongod = this.db;
-            //console.timeEnd("initMongo2");
-        } else {
+        // === FIX: Already connected, reuse ===
+        if (mongod) {
             this.db = mongod;
+            this.client = mongoClient;
+            return;
+        }
+
+        // === FIX: Connection in progress, wait for it (prevents duplicate connections) ===
+        if (mongoConnectPromise) {
+            await mongoConnectPromise;
+            this.db = mongod;
+            this.client = mongoClient;
+            return;
+        }
+
+        // === FIX: Create single shared connection promise ===
+        mongoConnectPromise = (async () => {
+            console.log('mongodb initMongo');
+            console.time("initMongo1");
+            mongoClient = await MongoClient.connect(this.storage.url, {
+                maxPoolSize: 200,
+                minPoolSize: 20,
+                maxIdleTimeMS: 30000,
+                waitQueueTimeoutMS: 250000,
+                serverSelectionTimeoutMS: 5000,
+                connectTimeoutMS: 20000,
+                maxConnecting: 10,
+                socketTimeoutMS: 45000,
+                retryWrites: true,
+                retryReads: true,
+                useNewUrlParser: true
+            });
+            console.timeEnd("initMongo1");
+
+            this.db = mongoClient.db(this.storage.database);
+            mongod = this.db;
+
+            // === FIX: Handle shutdown cleanly ===
+            process.on('SIGINT', async () => {
+                if (mongoClient) await mongoClient.close();
+                process.exit(0);
+            });
+            process.on('SIGTERM', async () => {
+                if (mongoClient) await mongoClient.close();
+                process.exit(0);
+            });
+        })();
+
+        try {
+            await mongoConnectPromise;
+            this.db = mongod;
+            this.client = mongoClient;
+        } catch (err) {
+            // === FIX: Reset on failure so next call retries ===
+            mongoConnectPromise = null;
+            mongoClient = null;
+            mongod = null;
+            throw err;
         }
     }
 
@@ -182,7 +232,7 @@ class storage_mongodb extends storage_main {
         const collection = obj.schema.$id;
         await this.initMongo();
         let MyCollection = this.db.collection(collection);
-        if (obj.filter) {
+        if (obj.hasOwnProperty('filter')) {
             if (obj.filter.$$objid) {
                 obj.filter._id = Mongo.ObjectID(obj.filter.$$objid);
                 delete obj.filter.$$objid;
@@ -194,16 +244,15 @@ class storage_mongodb extends storage_main {
                 delete obj.packet[key];
             }
         });
-
-        logger.trace("UPDATING mongo", {packet:obj.packet, filter: obj.filter})
-        if (obj.filter === {}) {
+        //logger.warn("UPDATING mongo", {packet:obj.packet, filter: obj.filter})
+        if (!obj.hasOwnProperty('filter') || Object.keys(obj.filter)===0) {
             logger.error('preventing to update without any filter')
             return
         }
         let result = await MyCollection.updateMany(obj.filter, {$set: obj.packet});
-        logger.log("committed" + result);
+        logger.info("committed" , result);
+        return {success: true, message: result};
     }
 }
 
 module.exports = storage_mongodb;
-

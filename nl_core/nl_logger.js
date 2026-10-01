@@ -36,13 +36,17 @@ const logFormat = printf(({ timestamp, level, message }) => {
 });
 
 let _transports = [
-    new transports.Console({ format: combine(timestamp(),colorize(), logFormat) })
+    new transports.Console({ format: combine(timestamp({
+            format: 'YYYY-MM-DD HH:mm:ss.SSS' // Custom format without timezone offset
+        }),colorize(), logFormat) })
 ];
 
 // Create a Winston logger with separate file transports for each log level
 const logger = createLogger({
     levels: customLevels.levels,
-    format: timestamp(),
+    format: timestamp({
+        format: 'YYYY-MM-DD HH:mm:ss.SSS' // Custom format without timezone offset
+    }),
     transports: _transports
 });
 
@@ -67,10 +71,13 @@ class nl_logger {
                 _transports.push(
                     new transports.File({ filename: destination, level: level, format: json() })
                 )
+                logger.log( 'info', `Log file added for level ${level} at ${destination}`);
             }
             this.Logger = createLogger({
                 levels: customLevels.levels,
-                format: timestamp(),
+                format: timestamp({
+                    format: 'YYYY-MM-DD HH:mm:ss.SSS' // Custom format without timezone offset
+                }),
                 transports: _transports
             });
         }

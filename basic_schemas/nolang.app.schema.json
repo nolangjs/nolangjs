@@ -332,7 +332,10 @@
                                             "type": "object"
                                         },
                                         "middleware": {
-                                            "description": "TODO"
+                                            "description": "js function path middleware with (req, res, next)"
+                                        },
+                                        "jsHandler": {
+                                            "description": "js function path that handle websockt with (ws, req)"
                                         },
                                         "bodyParser": {
                                             "type": ["string","object"],
@@ -694,6 +697,10 @@
             "description": "logger options",
             "type": "object",
             "properties": {
+                "time-format": {
+                    "description": "TODO format for timestamp and timezone",
+                    "type": "string"
+                },
                 "terminal": {
                     "description": "TODO, log on terminal",
                     "type": "boolean"

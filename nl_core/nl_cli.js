@@ -43,7 +43,7 @@ const path = require('path');
 const yargs = require('yargs')
 const {hideBin} = require('yargs/helpers')
 let pargv = process.argv;
-pargv[1] = 'nolang'
+// pargv[1] = 'nolang'
 
 if (typeof Bun !== "undefined") {
     global.runner = 'bun'

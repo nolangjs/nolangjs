@@ -124,10 +124,47 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                     this.openBrowser(port);
                 })
             }
-            express_ws(app, httpServer);
+            express_ws(app, httpServer, {
+                // Options for the underlying ws WebSocketServer
+                wsOptions: {
+                    clientTracking: true,
+                    perMessageDeflate: false,
+                    maxPayload: 1024 * 1024, // 1MB
+                },
+                // Optional: Set to true if you don't want express-ws to modify Router.prototype
+                // leaveRouterUntouched: false,
+            });
 
-            let enableWS = false;
-            //routes handlers
+            // let enableWS = false;
+            function get_env(req) {
+                let _env = {
+                    request: {
+                        baseUrl: req.baseUrl,
+                        originalUrl: req.originalUrl,
+                        path: req.path,
+                        protocol: req.protocol,
+                        secure: req.secure,
+                        fresh: req.fresh,
+                        stale: req.stale,
+                        hostname: req.hostname,
+                        subdomains: req.subdomains,
+                        ip: req.ip,
+                        ips: req.ips,
+                        xhr: req.xhr,
+                        method: req.method,
+                        params: req.params,
+                        body: req.body,
+                        query: req.query,
+                        url: req.url,
+                        headers: req.headers,
+                        cookies: req.cookies,
+                        signedCookies: req.signedCookies,
+                    }
+                };
+                return _env;
+            }
+
+//routes handlers
             if(this.conf.routes && this.conf.routes.length > 0)
                 for(let route of this.conf.routes) {
                     const method = route.method.toLowerCase();
@@ -164,7 +201,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                             }
                             let methodMiddleware = require(middlewarePath);
                             let thisObj = {
-                                endpoint: (req_packet, listener, env, ignoreUser)=>thes.nl_endpoint_method(req_packet, listener, env, ignoreUser),
+                                endpoint: (req_packet, listener, env, ignoreUser, ignoreView)=>thes.nl_endpoint_method(req_packet, listener, env, ignoreUser, ignoreView),
                             };
                             let mhandler = methodMiddleware.bind(thisObj)
                             // app.use(route.path, mhandler);
@@ -175,293 +212,268 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                     }
                     app.use(route.path, middlewares);
 
-                    let handler = (req, res)=>{
-                        let command = route.return || req.body;
-                        if(req.files && req.body.command) {
-                            command = JSON.parse(req.body.command);
-                            for (let fileKey of Object.keys(req.files) ) {
-                                let file = req.files[fileKey];
-                                if (this.conf.upload.maxSize) {
-                                    if(this.conf.upload.maxSize<file.size){
-                                        res.status(500).json({success: false, message: 'big file'});
-                                        return;
+                    let handler = null;
+
+                    if(route.jsHandler) {
+                        try {
+                            //todo need to cache
+                            let wsHandlerPath = route.jsHandler;
+                            if(!path.isAbsolute(route.jsHandler)) {
+                                wsHandlerPath = path.join(global.appPath, route.jsHandler);
+                            }
+                            if(!fs.existsSync(wsHandlerPath)){
+                                logger.error({message: 'middleware '+route.jsHandler+', path not exists! '+wsHandlerPath});
+                            }
+                            let methodWSHandler = require(wsHandlerPath);
+                            let thisObj = {
+                                endpoint: (req_packet, listener, env, ignoreUser, ignoreView)=>thes.nl_endpoint_method(req_packet, listener, env, ignoreUser, ignoreView),
+                            };
+                            handler = methodWSHandler.bind(thisObj);
+                        } catch (e){
+                            return {success: false, message: e.message};
+                        }
+                    } else {
+                        handler = (req, res)=> {
+                            let command = route.return || req.body;
+                            if(req.files && req.body.command) {
+                                command = JSON.parse(req.body.command);
+                                for (let fileKey of Object.keys(req.files) ) {
+                                    let file = req.files[fileKey];
+                                    if (this.conf.upload.maxSize) {
+                                        if(this.conf.upload.maxSize<file.size){
+                                            res.status(500).json({success: false, message: 'big file'});
+                                            return;
+                                        }
+                                    }
+                                    let fileExt = path.extname(file.name);
+                                    if(!fileExt || fileExt === '') {
+                                        fileExt = '.' + require('mime').extension(file.mimetype);
+                                    }
+                                    command[fileKey] = {
+                                        fileName: file.name,
+                                        size: file.size,
+                                        ext: fileExt
                                     }
                                 }
-                                let fileExt = path.extname(file.name);
-                                if(!fileExt || fileExt === '') {
-                                    fileExt = '.' + require('mime').extension(file.mimetype);
-                                }
-                                command[fileKey] = {
-                                    fileName: file.name,
-                                    size: file.size,
-                                    ext: fileExt
-                                }
                             }
-                        }
-                        let listener = {};
-                        let _env = {
-                            request: {
-                                baseUrl: req.baseUrl,
-                                originalUrl: req.originalUrl,
-                                path: req.path,
-                                protocol: req.protocol,
-                                secure: req.secure,
-                                fresh: req.fresh,
-                                stale: req.stale,
-                                hostname: req.hostname,
-                                subdomains: req.subdomains,
-                                ip: req.ip,
-                                ips: req.ips,
-                                xhr: req.xhr,
-                                method: req.method,
-                                params: req.params,
-                                body: req.body,
-                                query: req.query,
-                                url: req.url,
-                                headers: req.headers,
-                                cookies: req.cookies,
-                                signedCookies: req.signedCookies,
-                            }
-                        };
+                            let listener = {};
+                            let _env = get_env(req);
 
-                        let _req = {
-                            data: command,
-                            env: _env
-                        }
-                        const ST = require('stjs');
-                        command = ST.select(_req).transformWith(command).root();
-                        //check is listener for SSE
-                        if(command?.$$header?.listen) {
-                            res.set({
-                                'Cache-Control': 'no-cache',
-                                'Content-Type': 'text/event-stream',
-                                'Connection': 'keep-alive'
-                            });
-                            res.flushHeaders();
-                            // Tell the client to retry every 10 seconds if connectivity is lost
-                            // res.write('retry: 10000\n\n');
-                            listener = {
-                                handler: (response) => {
-                                    res.write(`data: ${JSON.stringify(response)}\n\n`);
+                            let _req = {
+                                data: command,
+                                env: _env
+                            }
+                            const ST = require('stjs');
+                            command = ST.select(_req).transformWith(command).root();
+                            //check is listener for SSE
+                            if(command?.$$header?.listen) {
+                                res.set({
+                                    'Cache-Control': 'no-cache',
+                                    'Content-Type': 'text/event-stream',
+                                    'Connection': 'keep-alive'
+                                });
+                                res.flushHeaders();
+                                // Tell the client to retry every 10 seconds if connectivity is lost
+                                // res.write('retry: 10000\n\n');
+                                listener = {
+                                    handler: (response) => {
+                                        res.write(`data: ${JSON.stringify(response)}\n\n`);
+                                    }
                                 }
+
+                                res.on('close', ()=>{
+                                    //delete listener handler
+                                    listener.handler = null;
+                                })
+                                thes.nl_endpoint_method(command, listener, _env).then(response=>{
+                                    //res.json(response);
+                                    res.write(`retry: 10000\n\ndata: ${JSON.stringify(response)}\n\n`);
+                                })
+                                return;//ignore rest of handler
                             }
 
-                            res.on('close', ()=>{
-                                //delete listener handler
-                                listener.handler = null;
+                            thes.nl_endpoint_method(command, listener, _env).then(nlresponse=>{
+                                //check upload files
+                                if(req.files){
+                                    try {
+                                        for (let fileKey of Object.keys(req.files) ) {
+                                            let file = req.files[fileKey];
+                                            let fileExt = path.extname(file.name);
+                                            if(!fileExt || fileExt === '') {
+                                                fileExt = '.' + require('mime').extension(file.mimetype);
+                                            }
+                                            try {
+                                                let filePath = path.join(uploadRoot, command.$$schema, nlresponse?.$$objid+'');
+                                                if(!fs.existsSync(filePath))
+                                                    fs.mkdirSync(filePath, {recursive: true});
+                                                file.mv(filePath+'/'+fileKey+fileExt, (err)=>{
+                                                    // if (err)
+                                                    // return res.status(500).send(err);
+                                                    ;
+                                                })
+                                            } catch (e) {
+                                                logger.error('file could not be saved!', e.message)
+                                            }
+                                        }
+                                    } catch (e) {
+                                        logger.error(e)
+                                    }
+
+                                }
+
+                                //cookies
+                                if(nlresponse?.$$res) {
+                                    /*$$res={
+                                        cookies: {
+                                            "cookie1": "value1",
+                                            "cookie2": {
+                                                "value":
+                                                    "value2",
+                                                options: {}
+                                            }
+                                        },
+                                        clearCookie: {
+                                            'name': { path: '/admin' },
+                                            'name2': {  }
+                                        },
+                                        headers: {
+                                            'Set-Cookie': 'foo=bar; Path=/; HttpOnly',
+                                            'Link': ['<http://localhost/>', '<http://localhost:3000/>']
+                                        },
+                                        attachment: 'path/to/logo.png',
+                                        download: 'path/to/file.pdf', // or: ['path/to/file.pdf','title.pdf']
+                                        links: {
+                                            next: 'http://api.example.com/users?page=2',
+                                            last: 'http://api.example.com/users?page=5'
+                                        },
+                                        location: 'http://example.com', // or 'back' or '/url/any'
+                                        type: 'jsonp', //or any Content-Type
+                                        vary: 'User-Agent',//Adds the field to the Vary response header, if it is not there already.
+                                        status: 404,
+                                        sendFile: '/absolute/path/to/404.png'
+                                    }*/
+
+                                    if (nlresponse.$$res.cookies) {
+                                        for (let cookie in nlresponse.$$res.cookies) {
+                                            let options = null;
+                                            let value = nlresponse.$$res.cookies[cookie];
+                                            if (typeof value === 'object') {
+                                                options = value.options;
+                                                value = value.value;
+                                            }
+                                            res.cookie(cookie, value, options);
+                                        }
+                                    }
+
+                                    if (nlresponse.$$res.headers) {
+                                        for (let header in nlresponse.$$res.headers) {
+                                            res.append(header, nlresponse.$$res.headers[header]);
+                                        }
+                                    }
+
+                                    if (nlresponse.$$res.attachment) {
+                                        res.attachment(nlresponse.$$res.attachment)
+                                    }
+
+                                    if (nlresponse.$$res.clearCookies) {
+                                        for (let clearCookie in nlresponse.$$res.clearCookies) {
+                                            res.clearCookie(clearCookie, nlresponse.$$res.clearCookies[clearCookie]);
+                                        }
+                                    }
+
+                                    if (nlresponse.$$res.download) {
+                                        let path = nlresponse.$$res.download;
+                                        let title;
+                                        if (Array.isArray(path)) {
+                                            path = path[0];
+                                            title = path[1]
+                                        }
+                                        res.download(path, title)
+                                    }
+
+                                    if (nlresponse.$$res.links) {
+                                        res.links(nlresponse.$$res.links)
+                                    }
+
+                                    if (nlresponse.$$res.location) {
+                                        res.location(nlresponse.$$res.location)
+                                    }
+
+                                    if (nlresponse.$$res.vary) {
+                                        res.vary(nlresponse.$$res.vary)
+                                    }
+
+                                    if (nlresponse.$$res.status) {
+                                        res.status(nlresponse.$$res.status)
+                                    }
+                                }
+
+                                if(nlresponse?.$$res?.redirect) {
+                                    res.redirect(nlresponse.$$res.redirect)
+                                } else if (nlresponse?.$$res?.sendFile) {
+                                    try {
+                                        res.sendFile(nlresponse.$$res.sendFile);
+                                    } catch (err) {
+                                        logger.error(err)
+                                    }
+                                } else {
+                                    res.type(route.type || nlresponse?.$$res?.type || 'json');
+                                    delete nlresponse?.$$res;
+                                    res.send(nlresponse);
+                                }
+                            }).catch(error => {
+                                let msg = error.message;
+                                if(error.message === 'cookieParser("secret") required for signed cookies') {
+                                    msg = 'To set signed cookies please set a secert in endpoint.cookie.secret'
+                                }
+                                res.status(500).json({
+                                    success: false,
+                                    message: msg,
+                                });
+                                logger.error(msg, error)
                             })
-                            thes.nl_endpoint_method(command, listener, _env).then(response=>{
-                                //res.json(response);
-                                res.write(`retry: 10000\n\ndata: ${JSON.stringify(response)}\n\n`);
-                            })
-                            return;//ignore rest of handler
                         }
 
-                        thes.nl_endpoint_method(command, listener, _env).then(nlresponse=>{
-                            //check upload files
-                            if(req.files){
-                                try {
-                                    for (let fileKey of Object.keys(req.files) ) {
-                                        let file = req.files[fileKey];
-                                        let fileExt = path.extname(file.name);
-                                        if(!fileExt || fileExt === '') {
-                                            fileExt = '.' + require('mime').extension(file.mimetype);
-                                        }
-                                        try {
-                                            let filePath = path.join(uploadRoot, command.$$schema, nlresponse?.$$objid+'');
-                                            if(!fs.existsSync(filePath))
-                                                fs.mkdirSync(filePath, {recursive: true});
-                                            file.mv(filePath+'/'+fileKey+fileExt, (err)=>{
-                                                // if (err)
-                                                // return res.status(500).send(err);
-                                                ;
-                                            })
-                                        } catch (e) {
-                                            logger.error('file could not be saved!', e.message)
-                                        }
+                        if(method === 'ws') {
+                            handler = (ws, req) => {
+                                //listener method if msg has listen //todo describe concept "listeners"
+                                let listener = {
+                                    handler: (response) => {
+                                        ws.send(JSON.stringify(response));
                                     }
-                                } catch (e) {
-                                    logger.error(e)
                                 }
+                                ws.on('message', (msg) => {
 
+                                    //////
+                                    let _env = get_env(req);
+                                    msg = JSON.parse(msg);
+                                    let _req = {
+                                        message: msg,
+                                        env: _env
+                                    }
+                                    const ST = require('stjs');
+                                    msg = ST.select(_req).transformWith(route.return || msg).root();
+                                    //////
+
+                                    logger.info('a message from ws received', msg)
+                                    thes.nl_endpoint_method(msg, listener, {request: req}).then(response => {
+                                        ws.send(JSON.stringify(response));
+                                    })
+                                });
+
+                                ws.on('close', function close() {
+                                    logger.debug('websocket disconnected');
+                                    //set listener to null to prevent to listen more
+                                    listener.handler = null;
+                                });
+
+                                ws.on('error', function error(err) {
+                                    logger.error('websocket error', err);
+                                });
                             }
-
-                            //cookies
-                            if(nlresponse?.$$res) {
-                                /*$$res={
-                                    cookies: {
-                                        "cookie1": "value1",
-                                        "cookie2": {
-                                            "value":
-                                                "value2",
-                                            options: {}
-                                        }
-                                    },
-                                    clearCookie: {
-                                        'name': { path: '/admin' },
-                                        'name2': {  }
-                                    },
-                                    headers: {
-                                        'Set-Cookie': 'foo=bar; Path=/; HttpOnly',
-                                        'Link': ['<http://localhost/>', '<http://localhost:3000/>']
-                                    },
-                                    attachment: 'path/to/logo.png',
-                                    download: 'path/to/file.pdf', // or: ['path/to/file.pdf','title.pdf']
-                                    links: {
-                                        next: 'http://api.example.com/users?page=2',
-                                        last: 'http://api.example.com/users?page=5'
-                                    },
-                                    location: 'http://example.com', // or 'back' or '/url/any'
-                                    type: 'jsonp', //or any Content-Type
-                                    vary: 'User-Agent',//Adds the field to the Vary response header, if it is not there already.
-                                    status: 404,
-                                    sendFile: '/absolute/path/to/404.png'
-                                }*/
-
-                                if (nlresponse.$$res.cookies) {
-                                    for (let cookie in nlresponse.$$res.cookies) {
-                                        let options = null;
-                                        let value = nlresponse.$$res.cookies[cookie];
-                                        if (typeof value === 'object') {
-                                            options = value.options;
-                                            value = value.value;
-                                        }
-                                        res.cookie(cookie, value, options);
-                                    }
-                                }
-
-                                if (nlresponse.$$res.headers) {
-                                    for (let header in nlresponse.$$res.headers) {
-                                        res.append(header, nlresponse.$$res.headers[header]);
-                                    }
-                                }
-
-                                if (nlresponse.$$res.attachment) {
-                                    res.attachment(nlresponse.$$res.attachment)
-                                }
-
-                                if (nlresponse.$$res.clearCookies) {
-                                    for (let clearCookie in nlresponse.$$res.clearCookies) {
-                                        res.clearCookie(clearCookie, nlresponse.$$res.clearCookies[clearCookie]);
-                                    }
-                                }
-
-                                if (nlresponse.$$res.download) {
-                                    let path = nlresponse.$$res.download;
-                                    let title;
-                                    if (Array.isArray(path)) {
-                                        path = path[0];
-                                        title = path[1]
-                                    }
-                                    res.download(path, title)
-                                }
-
-                                if (nlresponse.$$res.links) {
-                                    res.links(nlresponse.$$res.links)
-                                }
-
-                                if (nlresponse.$$res.location) {
-                                    res.location(nlresponse.$$res.location)
-                                }
-
-                                if (nlresponse.$$res.vary) {
-                                    res.vary(nlresponse.$$res.vary)
-                                }
-
-                                if (nlresponse.$$res.status) {
-                                    res.status(nlresponse.$$res.status)
-                                }
-                            }
-
-                            if(nlresponse?.$$res?.redirect) {
-                                res.redirect(nlresponse.$$res.redirect)
-                            } else if (nlresponse?.$$res?.sendFile) {
-                                try {
-                                    res.sendFile(nlresponse.$$res.sendFile);
-                                } catch (err) {
-                                    logger.error(err)
-                                }
-                            } else {
-                                res.type(route.type || nlresponse?.$$res?.type || 'json');
-                                delete nlresponse?.$$res;
-                                res.send(nlresponse);
-                            }
-                        }).catch(error => {
-                            let msg = error.message;
-                            if(error.message === 'cookieParser("secret") required for signed cookies') {
-                                msg = 'To set signed cookies please set a secert in endpoint.cookie.secret'
-                            }
-                            res.status(500).json({
-                                success: false,
-                                message: msg,
-                            });
-                            logger.error(msg, error)
-                        })
+                        }
                     }
 
-                    if(method === 'ws') {
-                        if(!enableWS) {
-                            // express_ws(app, httpServer);
-                            enableWS = true;
-                        }
-                        handler = (ws, req) => {
-                            //listener method if msg has listen //todo describe concept "listeners"
-                            let listener = {
-                                handler: (response) => {
-                                    ws.send(JSON.stringify(response));
-                                }
-                            }
-                            ws.on('message', (msg) => {
-
-                                //////
-                                let _env = {
-                                    request: {
-                                        baseUrl: req.baseUrl,
-                                        originalUrl: req.originalUrl,
-                                        path: req.path,
-                                        protocol: req.protocol,
-                                        secure: req.secure,
-                                        fresh: req.fresh,
-                                        stale: req.stale,
-                                        hostname: req.hostname,
-                                        subdomains: req.subdomains,
-                                        ip: req.ip,
-                                        ips: req.ips,
-                                        xhr: req.xhr,
-                                        method: req.method,
-                                        params: req.params,
-                                        body: req.body,
-                                        query: req.query,
-                                        url: req.url,
-                                        headers: req.headers,
-                                        cookies: req.cookies,
-                                        signedCookies: req.signedCookies,
-                                    },
-                                };
-
-                                let _req = {
-                                    message: JSON.parse(msg),
-                                    env: _env
-                                }
-                                const ST = require('stjs');
-                                msg = ST.select(_req).transformWith(route.return || msg).root();
-                                //////
-
-                                console.log('a message from ws received', msg)
-                                thes.nl_endpoint_method(msg, listener, {request: req}).then(response => {
-                                    ws.send(JSON.stringify(response));
-                                })
-                            });
-
-                            ws.on('close', function close() {
-                                logger.debug('websocket disconnected');
-                                //set listener to null to prevent to listen more
-                                listener.handler = null;
-                            });
-                        }
-                        // app[method].bind(app)(route.path, handler);
-                        // app.ws(route.path, handler);
-                    } //else
                     app[method].bind(app)(route.path, handler);
                     logger.info('http   '+ (route.type==='undefined'?'':route.type||'').padEnd(7) + route.method.padEnd(6)  + route.path )
                 }

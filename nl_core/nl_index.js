@@ -868,7 +868,7 @@ class nlCompiler {
         let header = req_packet.$$header;
 
         //queue
-        if(header.queue) {
+        if(header?.queue) {
             let _req_packet = JSON.parse(JSON.stringify(req_packet));
             const queueName = header.queue;
             delete _req_packet.$$header.queue;
