@@ -1,0 +1,10 @@
+{
+    "$id": "comment",
+    "properties": {
+        "postId": { "type": "string" },
+        "author": { "type": "string" },
+        "content": { "type": "string", "minLength": 1 },
+        "date": { "type": "date" }
+    },
+    "required": ["postId", "author", "content", "date"]
+}

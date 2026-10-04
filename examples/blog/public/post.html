@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog Post</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            padding: 20px;
+        }
+        .post {
+            margin-bottom: 20px;
+            border: 1px solid gray;
+            background-color: antiquewhite;
+            padding: 1pc;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="text-center">Blog Post</h1>
+    <div id="postContent" class="post">
+        <!-- Post content will be dynamically added here -->
+    </div>
+    <a href="javascript:history.back()">Back</a>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<script>
+    const postContent = document.getElementById('postContent');
+
+    // Function to get postId from the URL
+    function getPostIdFromUrl() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('postId');
+    }
+
+    // Fetch and display post by postId
+    async function fetchPost() {
+        const postId = getPostIdFromUrl();
+        if (postId) {
+            const response = await fetch(`/post/${postId}`);
+            let post = await response.json();
+            post = post[0]
+            postContent.innerHTML = `
+                <h2>${post.title}</h2>
+                <p><strong>Author:</strong> ${post.author}</p>
+                <p><strong>Published Date:</strong> ${post.publishedDate}</p>
+                <p>${post.content}
+                Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                <br><br>Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat. Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.
+                </p>
+            `;
+        } else {
+            postContent.innerHTML = '<p>No postId specified in the URL.</p>';
+        }
+    }
+
+    // Initial fetch of the post
+    fetchPost();
+</script>
+</body>
+</html>

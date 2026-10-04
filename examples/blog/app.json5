@@ -1,0 +1,104 @@
+{
+    name: "blog app",
+    schemas: {
+        adapter: "file",
+        path: "schemas",
+        watch: 9858
+    },
+    storage: {
+        "adapter": "mongodb",
+        "url": "mongodb://localhost:27017",
+        "database": "nolangtest",
+        "id": "_id"
+    },
+    endpoints: [
+        {
+            type: 'http',
+            static: './public',
+            cookie: {
+                secret: "1233444"
+            },
+            port: 1000,
+            routes: [
+                {
+                    path: '/',
+                    method: 'get'
+                },
+                {
+                    path: '/posts/:author',
+                    method: 'get',
+                    return: {
+                        $$schema: "post",
+                        $$header: {
+                            action: "R",
+                            debug: true,
+                            filter: {
+                                author: "{{env.request.params.author}}"
+                            }
+                        }
+                    }
+                },
+                {
+                    path: '/posts',
+                    method: 'get',
+                    return: {
+
+                        $$schema: "post",
+                        $$header: {
+                            action: "R",
+                            debug: true
+                        }
+                    }
+                },
+                {
+                    path: '/authors',
+                    method: 'get',
+                    return: {
+                        $$schema: "author",
+                        $$header: {
+                            action: "R"
+                        }
+                    }
+                },
+                {
+                    path: '/post/:id',
+                    method: 'get',
+                    return: {
+                        $$schema: "post",
+                        $$header: {
+                            action: "R",
+                            debug: true,
+                            filter: {
+                                $$objid: "{{env.request.params.id}}"
+                            }
+                        }
+                    }
+                },
+                {
+                    path: '/',
+                    method: 'post'
+                }
+            ]
+        }
+    ],
+    user: {
+        "authenticate": true,
+        "schema": "users",
+        "usernameField": "username",
+        "passwordField": "password",
+        "rolesField": "roles",
+        "jwt": {
+            "secret": "5Tyh&8%$S-=@",
+            "expiresIn": "2h",
+            cookie: {
+                options: {
+                    httpOnly: true,
+                    signed: true,
+                    secure: true,
+
+                }
+            }
+        },
+        "directRoles": false
+    }
+}

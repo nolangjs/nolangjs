@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Author Profile</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: #f8f9fa;
+            padding: 20px;
+        }
+        .profile-container {
+            width: 100%;
+            max-width: 800px;
+            background-color: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+        }
+        .blog-item {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            background-color: #f9f9f9;
+        }
+    </style>
+</head>
+<body>
+<div class="profile-container">
+    <h2 class="text-center">Author Profile</h2>
+    <form id="blog-form" class="mb-4">
+        <input type="hidden" id="blog-id" value="">
+        <div class="form-group">
+            <input type="text" id="title" class="form-control" placeholder="Blog Title" required>
+        </div>
+        <div class="form-group">
+            <textarea id="content" class="form-control" rows="3" placeholder="Blog Content" required></textarea>
+        </div>
+        <button type="submit" class="btn btn-success btn-block">Save Blog</button>
+    </form>
+    <div id="blogs-list">
+        <!-- Blog items will be dynamically added here -->
+    </div>
+</div>
+
+<script>
+    const apiUrl = "/posts"; // Replace with your server endpoint
+
+    // Fetch blogs on page load
+    fetch(apiUrl)
+        .then(res => res.json())
+        .then(blogs => renderBlogs(blogs))
+        .catch(err => console.error("Error fetching blogs:", err));
+
+    document.getElementById("blog-form").addEventListener("submit", (e) => {
+        e.preventDefault();
+
+        const blogId = document.getElementById("blog-id").value;
+        const title = document.getElementById("title").value;
+        const content = document.getElementById("content").value;
+
+        const method = blogId ? "PUT" : "POST"; // PUT for edit, POST for add
+        const url = blogId ? `${apiUrl}/${blogId}` : apiUrl;
+
+        fetch(url, {
+            method,
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ title, content }),
+        })
+            .then(res => res.json())
+            .then(() => {
+                document.getElementById("blog-form").reset();
+                fetch(apiUrl)
+                    .then(res => res.json())
+                    .then(blogs => renderBlogs(blogs));
+            })
+            .catch(err => console.error("Error saving blog:", err));
+    });
+
+    function renderBlogs(blogs) {
+        const blogsList = document.getElementById("blogs-list");
+        blogsList.innerHTML = "";
+        blogs.forEach(blog => {
+            const blogItem = document.createElement("div");
+            blogItem.className = "blog-item";
+            blogItem.innerHTML = `
+                    <h4>${blog.title}</h4>
+                    <p>${blog.content}</p>
+                    <button class="btn btn-primary btn-sm" onclick="editBlog(${blog.id})">Edit</button>
+                    <button class="btn btn-danger btn-sm" onclick="deleteBlog(${blog.id})">Delete</button>
+                `;
+            blogsList.appendChild(blogItem);
+        });
+    }
+
+    function editBlog(id) {
+        fetch(`${apiUrl}/${id}`, {
+            method: 'POST',
+            headers: {
+                'Accept': 'application/json, text/plain, */*',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(command)
+        })
+            .then(res => res.json())
+            .then(blog => {
+                document.getElementById("blog-id").value = blog.id;
+                document.getElementById("title").value = blog.title;
+                document.getElementById("content").value = blog.content;
+            })
+            .catch(err => console.error("Error fetching blog:", err));
+    }
+
+    function deleteBlog(id) {
+        fetch(`${apiUrl}/${id}`, { method: "DELETE" })
+            .then(() => fetch(apiUrl)
+                .then(res => res.json())
+                .then(blogs => renderBlogs(blogs)))
+            .catch(err => console.error("Error deleting blog:", err));
+    }
+</script>
+</body>
+</html>

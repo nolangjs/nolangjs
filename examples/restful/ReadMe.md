@@ -3,6 +3,20 @@
 ## Introduction
 In this tutorial, we will build a simple RESTful API for managing books using Nolang. We'll define the data schema for a book, set up HTTP endpoints for CRUD operations, and create a user-friendly frontend using HTML and Bootstrap to interact with the API.
 
+## 🧪 Featured Example: RESTful API in Pure JSON
+
+Nolang lets you build a full RESTful backend — including routing, validation, and persistence — using only JSON.
+
+🔗 [View the example](https://github.com/nolangjs/nolangjs/tree/master/examples/restful)
+
+**Highlights:**
+- Declarative endpoints (`/book/list`, `/book/create`, `/book/:id`)
+- Schema-driven validation and MongoDB storage
+- Dynamic routing with parameter binding
+- Bootstrap-powered frontend for real interaction
+
+No backend code. No framework boilerplate. Just structure and meaning.
+
 ## Prerequisites
 - Basic understanding of RESTful APIs
 - Familiarity with JSON and HTML

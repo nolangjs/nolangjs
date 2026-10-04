@@ -1,0 +1,43 @@
+{
+    "$id": "users",
+    "properties": {
+        "username": {
+            "type": "string"
+        },
+        "password": {
+            "type": "string"
+        },
+        "roles": {
+            "type": "array"
+        },
+        "extraField": {
+            "type": "string"
+        }
+    },
+    "$$storage": {
+        "adapter": "inline",
+        "data": [
+            {
+                "username": "Emily",
+                "password": "Emily",
+                "roles": [
+                    "AUTHOR"
+                ]
+            },
+            {
+                "username": "John",
+                "password": "John",
+                "roles": [
+                    "AUTHOR"
+                ]
+            },
+            {
+                "username": "Sarah",
+                "password": "Sarah",
+                "roles": [
+                    "AUTHOR"
+                ]
+            }
+        ]
+    }
+}

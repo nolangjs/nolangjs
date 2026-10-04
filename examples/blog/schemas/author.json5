@@ -1,0 +1,8 @@
+{
+    "$id": "author",
+    "properties": {
+        "name": { "type": "string", "minLength": 1 },
+        "bio": { "type": "string" }
+    },
+    "required": ["name"]
+}

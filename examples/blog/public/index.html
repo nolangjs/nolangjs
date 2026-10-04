@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Authors</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            padding: 20px;
+        }
+        .author {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+        .author img {
+            border-radius: 50%;
+            width: 100px;
+            height: 100px;
+            object-fit: cover;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <h1 class="text-center">Authors</h1>
+    <br>
+    <div id="authorList" class="row">
+        <!-- Authors will be dynamically added here -->
+    </div>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<script>
+    const authorList = document.getElementById('authorList');
+
+    async function fetchAuthors() {
+        const response = await fetch(`/authors`);
+        const authors = await response.json();
+
+        // Display authors
+        authors.forEach(author => {
+            const authorDiv = document.createElement('div');
+            authorDiv.className = 'col-md-4 author';
+            authorDiv.innerHTML = `
+            <img src="/img/authors/${author.name}.jpg" alt="${author.name}">
+            <h3>${author.name}</h3>
+            <p>${author.bio}</p>
+            <a href="posts.html?author=${author.name}" class="btn btn-primary">View Posts</a>
+        `;
+            authorList.appendChild(authorDiv);
+        });
+    }
+    fetchAuthors()
+</script>
+</body>
+</html>

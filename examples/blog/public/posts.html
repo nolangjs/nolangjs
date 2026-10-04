@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Blog Posts by Author</title>
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+    <style>
+        body {
+            padding: 20px;
+        }
+        .post {
+            margin-bottom: 20px;
+            border: 1px solid gray;
+            background-color: antiquewhite;
+            padding: 1pc;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <a href="javascript:history.back()">Back</a>
+    <h1 class="text-center">Blog Posts by <i id="author">-</i> </h1>
+    <center><img id="authorimgage" class="img-fluid" width="30%" align="center"></center>
+    <!-- List of Posts -->
+    <h2>List of Posts</h2>
+    <div id="postList" class="post-list">
+        <!-- Posts will be dynamically added here -->
+    </div>
+    <a href="javascript:history.back()">Back</a>
+</div>
+
+<script src="https://code.jquery.com/jquery-3.5.1.slim.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.5.4/dist/umd/popper.min.js"></script>
+<script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+
+<script>
+    const postList = document.getElementById('postList');
+
+    // Function to get authorId from the URL path
+    function getAuthorFromPath() {
+        const urlParams = new URLSearchParams(window.location.search);
+        return urlParams.get('author');
+    }
+
+    // Fetch and display posts by author
+    async function fetchPosts() {
+        const author = getAuthorFromPath();
+        document.getElementById('author').innerText = author;
+        document.getElementById('authorimgage').src = '/img/authors/'+author+'.jpg';
+        if (author) {
+            const response = await fetch(`/posts/${author}`);
+            const posts = await response.json();
+            postList.innerHTML = '';
+            posts.forEach(post => {
+                const postDiv = document.createElement('div');
+                postDiv.className = 'post';
+                postDiv.innerHTML = `
+                    <a href="post.html?postId=${post.$$objid}"><h3>${post.title}</h3></a>
+                    <p><strong>Author ID:</strong> ${post.author}</p>
+                    <p><strong>Published Date:</strong> ${post.publishedDate}</p>
+                    <p>${post.content}</p>
+                `;
+                postList.appendChild(postDiv);
+            });
+        } else {
+            postList.innerHTML = '<p>No author specified in the URL path.</p>';
+        }
+    }
+
+    // Initial fetch of posts
+    fetchPosts();
+</script>
+</body>
+</html>

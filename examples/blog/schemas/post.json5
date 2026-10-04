@@ -1,0 +1,33 @@
+{
+    "$id": "post",
+    "properties": {
+        "title": { "type": "string", "minLength": 1 },
+        "author": { "type": "string" },
+        "content": { "type": "string", "minLength": 1 },
+        "publishedDate": { "type": "date" },
+        "comments": { "type": "array", "items": { "$ref": "comment" } }
+    },
+    "required": ["title", "author", "content", "publishedDate"],
+    "$$roles": [
+        {
+            "roleId": "AUTHOR",
+            "permissions": [
+                {
+                    "access": [
+                        "A"
+                    ]
+                }
+            ]
+        },
+        {
+            "roleId": "*",
+            "permissions": [
+                {
+                    "access": [
+                        "R"
+                    ]
+                }
+            ]
+        }
+    ]
+}
