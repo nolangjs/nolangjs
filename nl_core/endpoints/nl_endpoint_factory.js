@@ -1,5 +1,5 @@
 const logger = global.logger;
-const allendpoints = {
+/*const allendpoints = {
     amqp: require('./amqp_nl_endpoint'),
     cli: require('./cli_nl_endpoint'),
     file: require('./file_nl_endpoint'),
@@ -11,7 +11,9 @@ const allendpoints = {
     mqtt: require('./mqtt_nl_endpoint'),
     redis: require('./redis_nl_endpoint'),
     socket: require('./socket_nl_endpoint'),
-}
+}*/
+
+const getEndpoint = (type) => require(`./${type}_nl_endpoint`);
 
 module.exports = class nl_endpoint_factory {
     /**
@@ -24,7 +26,8 @@ module.exports = class nl_endpoint_factory {
         for(let endpoint of endpoints) {
             try {
                 // const _nl_endpoint = require(`./${endpoint.type}_nl_endpoint`);
-                const _nl_endpoint = allendpoints[endpoint.type];
+                // const _nl_endpoint = allendpoints[endpoint.type];
+                const _nl_endpoint = getEndpoint(endpoint.type);
                 endpoint.watch = watch;
                 this.endpoints.push(new _nl_endpoint(endpoint, nl_endpoint_method));
             } catch (err) {

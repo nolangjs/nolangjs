@@ -1,12 +1,7 @@
 const nl_endpoint = require('./nl_endpoint');
 const JSON5 = require('json5');
 const readline = require("node:readline");//todo use autocomplete
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
 const logger = global.logger;
-
 /**
  * @desc cli endpoint
  * @type {module.cli_nl_endpoint|{}}
@@ -14,6 +9,10 @@ const logger = global.logger;
 module.exports = class cli_nl_endpoint extends nl_endpoint{
 
     async start(){
+        const rl = readline.createInterface({
+            input: process.stdin,
+            output: process.stdout
+        });
         logger.log('#############################################')
         logger.log('############     Nolang  CLI     ############')
         logger.log('#############################################')

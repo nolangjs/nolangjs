@@ -371,6 +371,51 @@
                                         "type": "string"
                                     }
                                 }
+                            },
+                            "trustProxy": {
+                                "description": "Value passed to Express app.set('trust proxy', ...). Controls whether req.hostname honours X-Forwarded-Host from proxies. Leave unset to disable. TODO document it",
+                                "oneOf": [
+                                    {
+                                        "type": "boolean",
+                                        "description": "true = trust all proxies, false = trust none."
+                                    },
+                                    {
+                                        "type": "integer",
+                                        "minimum": 0,
+                                        "description": "Number of hops from the app to trust (e.g. 1 = first proxy only)."
+                                    },
+                                    {
+                                        "type": "string",
+                                        "description": "A named trust preset, a comma-separated list of IPs/CIDRs, or an IP/CIDR string. Examples: 'loopback', 'linklocal', 'uniquelocal', 'loopback, 10.0.0.0/8', '127.0.0.1', '10.0.0.0/8'.",
+                                        "minLength": 1
+                                    },
+                                    {
+                                        "type": "array",
+                                        "description": "Explicit list of trusted IPs, CIDRs, or named presets.",
+                                        "minItems": 0,
+                                        "items": {
+                                            "type": "string",
+                                            "minLength": 1
+                                        }
+                                    }
+                                ]
+                            },
+                            "allowedHosts": {
+                                "description": "Allow-list of Host header values. Requests with any other host (including direct IP hits) are rejected with HTTP 421. Omit to disable filtering (accept anything). Empty array = reject everything.  TODO document it",
+                                "type": "array",
+                                "items": {
+                                    "type": "string",
+                                    "minLength": 1,
+                                    "maxLength": 253,
+                                    "description": "An exact hostname (e.g. 'app.example.com') or a wildcard subdomain pattern ('*.example.com' — matches subdomains, not the apex).",
+                                    "pattern": "^(\\*\\.)?([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\\.)*[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$"
+                                },
+                                "uniqueItems": true
+                            },
+                            "open": {
+                                "description": "URL to open in the browser after the server starts. Must include a scheme (http://, https://, file://, ...). Bare ports/hosts will be normalised to http(s). TODO document it",
+                                "pattern": "^([a-zA-Z][a-zA-Z0-9+.-]*://|\\d+$|[A-Za-z0-9._-]+(:\\d+)?(/.*)?$)",
+                                "type": "string"
                             }
                         },
                         "additionalProperties": false,

@@ -18,7 +18,6 @@ const uuid = require('uuid-random');
 
 const logger = global.logger;
 
-
 //rule_runner
 const rule_runner = require('./nl_rule_runner');
 
@@ -734,7 +733,7 @@ class nlCompiler {
                 } else if(view.engine === 'file' && view.render) {
                     let vpath = path.isAbsolute(view.render) ? view.render : path.join(global.appPath, view.render);
                     let render_file = require(vpath);
-                    return await render_file(schema, view, data2 || data || req_packet, _ssCompiler, env, data.length, all_count)
+                    return await render_file(schema, view, data2 || data || req_packet, _ssCompiler, env, data?.length, all_count)
                 }
             }
 

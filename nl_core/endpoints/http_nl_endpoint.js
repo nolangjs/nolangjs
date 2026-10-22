@@ -22,8 +22,49 @@ let _reloadReturned;
  */
 module.exports = class http_nl_endpoint extends nl_endpoint {
 
+    /**
+     * Middleware: only allow requests whose Host header matches one of
+     * the configured allowed hosts. Exact matches + "*.suffix" wildcards.
+     * Anything else (including direct IP hits) is rejected with 421.
+     */
+    _hostGuard(allowedHosts) {
+        const exact = new Set();
+        const wildcards = [];
+        for (const entry of allowedHosts) {
+            const h = String(entry).trim().toLowerCase();
+            if (!h) continue;
+            if (h.startsWith('*.')) wildcards.push(h.slice(1));
+            else exact.add(h);
+        }
+        return (req, res, next) => {
+            const host = (req.hostname || req.headers.host || '')
+                .split(':')[0].toLowerCase();
+            if (exact.has(host)) return next();
+            for (const suffix of wildcards) {
+                if (host.length > suffix.length && host.endsWith(suffix)) {
+                    return next();
+                }
+            }
+            logger.warn('Blocked request for disallowed host: ' + host);
+            res.status(421).type('text/plain')
+                .set('Connection', 'close')
+                .send('Unknown host\n');
+        };
+    }
+
     async start() {
         const app = express();
+
+        // ── trust proxy (needed for req.hostname behind Nginx/Cloudflare/etc.) ──
+        if (this.conf.trustProxy) {
+            app.set('trust proxy', this.conf.trustProxy);
+        }
+
+        // ── host allow-list: reject any Host not in this.conf.allowedHosts ──
+        // (direct-IP hits and foreign domains get 421 before hitting any handler)
+        if (Array.isArray(this.conf.allowedHosts)) {
+            app.use(this._hostGuard(this.conf.allowedHosts));
+        }
 
         app.use(cookieParser(this.conf.cookie?.secret));
 
@@ -101,8 +142,8 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
             app.use(helmet(this.conf.helmet));
         }
 
-        let doListen = ()=>{
-            let httpServer;
+        const doListen = ()=>{
+            let httpServer = null;
             if(this.conf.https && this.conf.https.enabled) {
                 const https = require('https');
                 const privateKey = fs.readFileSync(this.conf.https.privateKey, 'utf8');
@@ -119,10 +160,10 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                     this.openBrowser(this.conf.https.port || 443, true)
                 });
             } else {
-                httpServer = app.listen(port, () => {
+                httpServer = app.listen(port,() => {
                     logger.log(`############     Nolang HTTP listening on port ${port}    ############`)
                     this.openBrowser(port);
-                })
+                } )
             }
             express_ws(app, httpServer, {
                 // Options for the underlying ws WebSocketServer
@@ -134,7 +175,6 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                 // Optional: Set to true if you don't want express-ws to modify Router.prototype
                 // leaveRouterUntouched: false,
             });
-
             // let enableWS = false;
             function get_env(req) {
                 let _env = {
@@ -164,7 +204,7 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                 return _env;
             }
 
-//routes handlers
+            //routes handlers
             if(this.conf.routes && this.conf.routes.length > 0)
                 for(let route of this.conf.routes) {
                     const method = route.method.toLowerCase();
@@ -478,7 +518,6 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
                     logger.info('http   '+ (route.type==='undefined'?'':route.type||'').padEnd(7) + route.method.padEnd(6)  + route.path )
                 }
 
-
             /*const wss = new WebSocketServer.Server({server: httpServer });
 
             wss.on("connection", ws => {
@@ -548,12 +587,18 @@ module.exports = class http_nl_endpoint extends nl_endpoint {
     }
 
     openBrowser(port, https) {
-        logger.log('"Hit F2 to launch the browser!" 🚀')
+        /*logger.log('"Hit F2 to launch the browser!" 🚀')
         process.stdin.on('keypress', (str, key) => {
             if (key.name === 'f2') {
                 import('open').then(open => open.default(https?'https':'http'+'://localhost:' + port, {newInstance: false, wait: true}))
             }
-        });
+        });*/
+        if(this.conf.open){
+            import('open').then(open => open.default(this.conf.open, {newInstance: false, wait: true, allowNonzeroExitCode: true})).catch(err => {
+                // Log the error but don't crash the server
+                logger.warn('Could not open browser automatically:', err.message);
+            });
+        }
     }
 
     reload() {

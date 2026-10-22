@@ -14,7 +14,7 @@ module.exports = class nl_endpoint {
         this.conf = conf;
         this.nl_endpoint_method = nl_endpoint_method;
         this.start().then(r => {
-            logger.debug( conf.type + ' endpoint started');
+            logger.log( conf.type + ' endpoint started');
         });
     }
 
